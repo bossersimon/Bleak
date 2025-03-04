@@ -3,13 +3,13 @@
 
 import asyncio
 from bleak import BleakScanner
+#import bleak
 
 async def main():
-
-    scanner = BleakScanner(adapter="hci0", advertisement_data = True)
-    scanner._scanner_kwargs = {"duplicate": True}  # Try forcing duplicate scanning
-    devices = await scanner.discover()
-    #devices = await BleakScanner.discover(20.0, return_adv=True)
+#    print("Bleak version:", bleak.__version__)
+    scanner = BleakScanner(adapter="hci0")
+    scanner._scanner_kwargs = {"duplicate": True}
+    devices = await scanner.discover(timeout=20.0)
     for d in devices:
         print(d)
 
