@@ -16,7 +16,13 @@ import qasync
 
 address = "28:37:2F:6A:B1:42"
 CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c"
+BIAS_UUID = "97b28d55-f227-4568-885a-4db649a8e9fd"
 
+
+
+accel_data = np.array([0,0,0])
+gyro_data = np.array([0,0,0])
+biases = []
 
 class BLEWorker(QtCore.QObject):
     data_received = QtCore.pyqtSignal(float)
@@ -29,13 +35,19 @@ class BLEWorker(QtCore.QObject):
 
 # called when new data is received
     async def notification_handler(self, sender, data):
-        x, y, z = struct.unpack('<fff', data)
-#        print(f"received data: {x, y, z}")
-        self.data_received.emit(x)
+        ax, ay, az, gx, gy, gz = struct.unpack('>hhhhhh', data)
+        #print(f"received data: {ax, ay, az, gx, gy, gz}")
+        self.data_received.emit(ax)
     
     async def read_BLE(self):
         # Connect to ESP
         async with BleakClient(self.address) as client:
+
+            # for bias calculation
+            bias_data = await client.read_gatt_char(BIAS_UUID)
+            biases = list(int.from_bytes(bias_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(bias_data), 2))
+            print("Bias values:", biases)
+
             await client.start_notify(CHARACTERISTIC_UUID, self.notification_handler)
 
             while True:
