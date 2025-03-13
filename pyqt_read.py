@@ -9,7 +9,7 @@ from bleak import BleakClient
 #import time
 import numpy as np
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtWidgets
+from pyqtgraph.Qt import QtCore
 from PyQt6.QtWidgets import QApplication
 import sys
 import qasync
@@ -21,7 +21,7 @@ CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c"
 class BLEWorker(QtCore.QObject):
     data_received = QtCore.pyqtSignal(float)
 
-    def __init__(self, address, loop: asyncio.AbstractEventLoop, parent = None):
+    def __init__(self, address, loop, parent = None):
         super().__init__()
         self.loop = loop
         self.address = address
@@ -30,13 +30,13 @@ class BLEWorker(QtCore.QObject):
 # called when new data is received
     async def notification_handler(self, sender, data):
         x, y, z = struct.unpack('<fff', data)
-        print(f"received data: {x, y, z}")
+#        print(f"received data: {x, y, z}")
         self.data_received.emit(x)
     
     async def read_BLE(self):
         # Connect to ESP
         async with BleakClient(self.address) as client:
-            await client.start_notify(CHARACTERISTIC_UUID, self,notification_handler)
+            await client.start_notify(CHARACTERISTIC_UUID, self.notification_handler)
 
             while True:
                 await asyncio.sleep(0.1)
@@ -44,27 +44,34 @@ class BLEWorker(QtCore.QObject):
 
     # create tasks
     def start_BLE(self):
-        asyncio.ensure_future(self.read_BLE(), loop=self.loop)
+        asyncio.run_coroutine_threadsafe(self.read_BLE(), self.loop)  # Delayed execution
+        #asyncio.create_task(self.read_BLE())
 
 class RealTimePlot:
 
-    def __init__(self, parent = None):
+    def __init__(self, loop):
 
 # Application for managing GUI application
         #self.app = pg.mkQApp("Testplot")
-        self.pw = pg.PlotWidget(show=True)
+        self.pw = pg.PlotWidget()
         self.pw.setWindowTitle("Plot1")
         #pw1.setLabel("bottom", " ")
         #pw1.setLabel("left", " ")
+        self.pw.show()
 
 # create empty data buffer
         self.curve = self.pw.plot(pen="b")
         self.data= np.zeros(100)
 
-        loop = asyncio.get_event_loop()
+#        loop = asyncio.get_running_loop()
+        self.loop = loop
         self.ble_worker = BLEWorker(address, loop)
         self.ble_worker.data_received.connect(self.read_data)
         self.ble_worker.start_BLE()
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update)
+        self.timer.start(50)
         
         self.latest_data = 0.0
 
@@ -82,7 +89,9 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
-    plot = RealTimePlot()
+
+    plot = RealTimePlot(loop)
+    QtCore.QTimer.singleShot(0, plot.ble_worker.start_BLE)
     
     with loop:
         loop.run_forever()
