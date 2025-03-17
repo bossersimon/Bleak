@@ -18,8 +18,6 @@ address = "28:37:2F:6A:B1:42"
 CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c"
 BIAS_UUID = "97b28d55-f227-4568-885a-4db649a8e9fd"
 
-
-
 accel_data = np.array([0,0,0])
 gyro_data = np.array([0,0,0])
 biases = []
@@ -31,11 +29,12 @@ class BLEWorker(QtCore.QObject):
         super().__init__()
         self.loop = loop
         self.address = address
-        self.client = None
+       # self.client = None
 
 # called when new data is received
     async def notification_handler(self, sender, data):
-        ax, ay, az, gx, gy, gz = struct.unpack('>hhhhhh', data)
+        ax, ay, az, gx, gy, gz = convert_to_float(struct.unpack('>hhhhhh', data))
+
         #print(f"received data: {ax, ay, az, gx, gy, gz}")
         self.data_received.emit(ax)
     
@@ -43,10 +42,10 @@ class BLEWorker(QtCore.QObject):
         # Connect to ESP
         async with BleakClient(self.address) as client:
 
-            # for bias calculation
-            bias_data = await client.read_gatt_char(BIAS_UUID)
-            biases = list(int.from_bytes(bias_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(bias_data), 2))
-            print("Bias values:", biases)
+            # for bias and scale correction
+            param_data = await client.read_gatt_char(BIAS_UUID)
+            params = list(int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2))
+            print("Adjustment values:", params)
 
             await client.start_notify(CHARACTERISTIC_UUID, self.notification_handler)
 
@@ -63,8 +62,6 @@ class RealTimePlot:
 
     def __init__(self, loop):
 
-# Application for managing GUI application
-        #self.app = pg.mkQApp("Testplot")
         self.pw = pg.PlotWidget()
         self.pw.setWindowTitle("Plot1")
         #pw1.setLabel("bottom", " ")
@@ -95,9 +92,20 @@ class RealTimePlot:
         self.data[-1] = self.latest_data
         self.curve.setData(self.data) # update
 
+def convert_to_float(ax, ay, az, gx, gy, gz):
+    ax = ax / acc_divider - biases[0] # swap with bit shifts
+    ay = ay / acc_divider - biases[1]
+    az = az / acc_divider - biases[2]
+    gx = gx / gyro_divider - biases[0]
+    gy = gy / gyro_divider - biases[1]
+    gz = gz / gyro_divider - biases[2]
+
+    return ax, ay, az, gx, gy, gz
+
 
 if __name__ == "__main__":
 
+# Application for managing GUI application
     app = QApplication(sys.argv)
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
