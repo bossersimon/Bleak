@@ -10,7 +10,9 @@ from bleak import BleakClient
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore
-from PyQt6.QtWidgets import QApplication
+#from PyQt6.QtWidgets import QApplication
+#from PyQt6 import QtWidgets
+from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout, QPushButton
 import sys
 import qasync
 
@@ -39,7 +41,7 @@ ACC_SCALES = {
 }
 
 class BLEWorker(QtCore.QObject):
-    data_received = QtCore.pyqtSignal(float)
+    data_received = QtCore.pyqtSignal(list)
 
     def __init__(self, address, loop, parent = None):
         super().__init__()
@@ -49,10 +51,10 @@ class BLEWorker(QtCore.QObject):
 
 # called when new data is received
     async def notification_handler(self, sender, data):
-        ax, ay, az, gx, gy, gz = convert_to_float(*struct.unpack('>hhhhhh', data))
+        gx, gy, gz, ax, ay, az = convert_to_float(*struct.unpack('>hhhhhh', data))
 
         print(f"received data: {ax, ay, az, gx, gy, gz}")
-        self.data_received.emit(ax)
+        self.data_received.emit([ax,ay,az,gx,gy,gz])
     
     async def read_BLE(self):
         # Connect to ESP
@@ -83,19 +85,44 @@ class BLEWorker(QtCore.QObject):
         asyncio.run_coroutine_threadsafe(self.read_BLE(), self.loop)  # Delayed execution
         #asyncio.create_task(self.read_BLE())
 
-class RealTimePlot:
+class PlotWindow(QWidget):
 
     def __init__(self, loop):
 
-        self.pw = pg.PlotWidget()
-        self.pw.setWindowTitle("Plot1")
-        #pw1.setLabel("bottom", " ")
-        #pw1.setLabel("left", " ")
-        self.pw.show()
+        super().__init__()
+
+        layout = QGridLayout()  # Create a layout
+
+        self.pw1 = pg.PlotWidget(title="ax")
+        self.pw2 = pg.PlotWidget(title="ay")
+        self.pw3 = pg.PlotWidget(title="az")
+        self.pw4 = pg.PlotWidget(title="gx")
+        self.pw5 = pg.PlotWidget(title="gy")
+        self.pw6 = pg.PlotWidget(title="gz")
+        
+        layout.addWidget(self.pw1, 0,0)
+        layout.addWidget(self.pw2, 0,1)
+        layout.addWidget(self.pw3, 0,2)
+        layout.addWidget(self.pw4, 1,0)
+        layout.addWidget(self.pw5, 1,1)
+        layout.addWidget(self.pw6, 1,2)
+
+        self.setLayout(layout)
+        
+        self.curve1 = self.pw1.plot(pen="w")
+        self.curve2 = self.pw2.plot(pen="w")
+        self.curve3 = self.pw3.plot(pen="w")
+        self.curve4 = self.pw4.plot(pen="w")
+        self.curve5 = self.pw5.plot(pen="w")
+        self.curve6 = self.pw6.plot(pen="w")
 
 # create empty data buffer
-        self.curve = self.pw.plot(pen="b")
-        self.data= np.zeros(100)
+        self.data1= np.zeros(100)
+        self.data2= np.zeros(100)
+        self.data3= np.zeros(100)
+        self.data4= np.zeros(100)
+        self.data5= np.zeros(100)
+        self.data6= np.zeros(100)
 
 #        loop = asyncio.get_running_loop()
         self.loop = loop
@@ -107,20 +134,36 @@ class RealTimePlot:
         self.timer.timeout.connect(self.update)
         self.timer.start(50)
         
-        self.latest_data = 0.0
+        self.latest_data = [0,0,0,0,0,0] 
 
     def read_data(self, new_data):
         self.latest_data = new_data
 
     def update(self):
-        self.data = np.roll(self.data, -1)
-        self.data[-1] = self.latest_data
-        self.curve.setData(self.data) # update
+        self.data1 = np.roll(self.data1, -1)
+        self.data2 = np.roll(self.data2, -1)
+        self.data3 = np.roll(self.data3, -1)
+        self.data4 = np.roll(self.data4, -1)
+        self.data5 = np.roll(self.data5, -1)
+        self.data6 = np.roll(self.data6, -1)
+        self.data1[-1] = self.latest_data[0]
+        self.data2[-1] = self.latest_data[1]
+        self.data3[-1] = self.latest_data[2]
+        self.data4[-1] = self.latest_data[3]
+        self.data5[-1] = self.latest_data[4]
+        self.data6[-1] = self.latest_data[5]
+
+        self.curve1.setData(self.data1) # update
+        self.curve2.setData(self.data2) # update
+        self.curve3.setData(self.data3) # update
+        self.curve4.setData(self.data4) # update
+        self.curve5.setData(self.data5) # update
+        self.curve6.setData(self.data6) # update
 
 def convert_to_float(ax, ay, az, gx, gy, gz):
     
     data = np.array([ax, ay, az, gx, gy, gz], dtype=np.int16)
-    scaled = data.astype(np.float32) / [16384, 16384, 16384, 128, 128, 128] - bias
+    scaled = data.astype(np.float32) / [131, 131, 131, 16384, 16384, 16384] - bias
     ax, ay, az, gx, gy, gz = scaled
     """
     ax = float(np.int16(ax >> 14)) - bias[0] 
@@ -140,7 +183,8 @@ if __name__ == "__main__":
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
 
-    plot = RealTimePlot(loop)
+    plot = PlotWindow(loop)
+    plot.show()
     QtCore.QTimer.singleShot(0, plot.ble_worker.start_BLE)
     
     with loop:
