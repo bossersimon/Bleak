@@ -51,11 +51,24 @@ class BLEWorker(QtCore.QObject):
 
 # called when new data is received
     async def notification_handler(self, sender, data):
+        # Multiple data points at a time:
+
+#        received = np.array(bytearray(data), dtype=np.byte)
+#        received.shape = (len(received)/12, 12)
+        
+        received = [struct.unpack('>hhhhhh', data[i:i+12]) for i in range(0,len(data), 12)]
+        received = np.array(convert_to_float(received))
+
+        self.data_received.emit()
+
+
+
+        """ One data point at a time
         gx, gy, gz, ax, ay, az = convert_to_float(*struct.unpack('>hhhhhh', data))
 
         print(f"received data: {ax, ay, az, gx, gy, gz}")
         self.data_received.emit([ax,ay,az,gx,gy,gz])
-    
+        """
     async def read_BLE(self):
         # Connect to ESP
         async with BleakClient(self.address) as client:
@@ -160,7 +173,7 @@ class PlotWindow(QWidget):
         self.curve5.setData(self.data5) # update
         self.curve6.setData(self.data6) # update
 
-def convert_to_float(ax, ay, az, gx, gy, gz):
+def convert_to_float([ax, ay, az, gx, gy, gz]):
     
     data = np.array([ax, ay, az, gx, gy, gz], dtype=np.int16)
     scaled = data.astype(np.float32) / [131, 131, 131, 16384, 16384, 16384] - bias
