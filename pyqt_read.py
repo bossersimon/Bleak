@@ -56,19 +56,13 @@ class BLEWorker(QtCore.QObject):
 #        received = np.array(bytearray(data), dtype=np.byte)
 #        received.shape = (len(received)/12, 12)
         
-        received = [struct.unpack('>hhhhhh', data[i:i+12]) for i in range(0,len(data), 12)]
-        received = np.array(convert_to_float(received))
+        #received = [struct.unpack('>hhhhhh', data[i:i+12]) for i in range(0,len(data), 12)]
+        received = convert_to_float(data)
+        print(f"shape received: {np.shape(received)}\n")
 
-        self.data_received.emit()
+#        self.data_received.emit(received)
 
 
-
-        """ One data point at a time
-        gx, gy, gz, ax, ay, az = convert_to_float(*struct.unpack('>hhhhhh', data))
-
-        print(f"received data: {ax, ay, az, gx, gy, gz}")
-        self.data_received.emit([ax,ay,az,gx,gy,gz])
-        """
     async def read_BLE(self):
         # Connect to ESP
         async with BleakClient(self.address) as client:
@@ -83,7 +77,8 @@ class BLEWorker(QtCore.QObject):
             # for bias and scale correction
             param_data = await client.read_gatt_char(PARAMS_UUID)
             global bias
-            bias = list(int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2))
+            bias = [int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2)]
+
             print("Adjustment values:", bias)
 
             await client.start_notify(CHARACTERISTIC_UUID, self.notification_handler)
@@ -150,6 +145,7 @@ class PlotWindow(QWidget):
         self.latest_data = [0,0,0,0,0,0] 
 
     def read_data(self, new_data):
+        # new_data of unknown size
         self.latest_data = new_data
 
     def update(self):
@@ -173,20 +169,18 @@ class PlotWindow(QWidget):
         self.curve5.setData(self.data5) # update
         self.curve6.setData(self.data6) # update
 
-def convert_to_float([ax, ay, az, gx, gy, gz]):
+def convert_to_float(buffer):
     
-    data = np.array([ax, ay, az, gx, gy, gz], dtype=np.int16)
-    scaled = data.astype(np.float32) / [131, 131, 131, 16384, 16384, 16384] - bias
-    ax, ay, az, gx, gy, gz = scaled
-    """
-    ax = float(np.int16(ax >> 14)) - bias[0] 
-    ay = float(np.int16(ay >> 14)) - bias[1]
-    az = float(np.int16(az >> 14)) - bias[2]
-    gx = float(np.int16(gx >> 7)) - bias[3]
-    gy = float(np.int16(gy >> 7)) - bias[4]
-    gz = float(np.int16(gz >> 7)) - bias[5]    
-    """
-    return ax, ay, az, gx, gy, gz
+    #data = np.array(buffer, dtype=np.int16)
+    #scaled = [data[i:i+12].astype(np.float32) / [16384, 16384, 16384, 131, 131,131] - bias for i in range(0, len(data), 12)]
+    
+
+    data_arr = np.frombuffer(buffer, dtype=np.int16).astype(np.float32)
+    data_arr = data_arr.reshape(-1,6)
+    scaled = (data_arr / [16384,16384,16384,131,131,131]) - bias
+    scaled = scaled.T
+
+    return scaled
 
 
 if __name__ == "__main__":
