@@ -59,8 +59,8 @@ class BLEWorker(QtCore.QObject):
         #received = [struct.unpack('>hhhhhh', data[i:i+12]) for i in range(0,len(data), 12)]
         received = convert_to_float(data)
         print(f"shape received: {np.shape(received)}\n")
-
-#        self.data_received.emit(received)
+        
+        self.data_received.emit(received.flatten().tolist()) # emits to read_data()
 
 
     async def read_BLE(self):
@@ -125,12 +125,13 @@ class PlotWindow(QWidget):
         self.curve6 = self.pw6.plot(pen="w")
 
 # create empty data buffer
-        self.data1= np.zeros(100)
-        self.data2= np.zeros(100)
-        self.data3= np.zeros(100)
-        self.data4= np.zeros(100)
-        self.data5= np.zeros(100)
-        self.data6= np.zeros(100)
+        self.bufferSize = 500
+        self.data1= np.zeros(self.bufferSize)
+        self.data2= np.zeros(self.bufferSize)
+        self.data3= np.zeros(self.bufferSize)
+        self.data4= np.zeros(self.bufferSize)
+        self.data5= np.zeros(self.bufferSize)
+        self.data6= np.zeros(self.bufferSize)
 
 #        loop = asyncio.get_running_loop()
         self.loop = loop
@@ -142,32 +143,42 @@ class PlotWindow(QWidget):
         self.timer.timeout.connect(self.update)
         self.timer.start(50)
         
-        self.latest_data = [0,0,0,0,0,0] 
+        self.latest_data = np.empty((6,0)) 
 
     def read_data(self, new_data):
         # new_data of unknown size
-        self.latest_data = new_data
+        self.latest_data = np.array(new_data).reshape(6,-1)
 
     def update(self):
-        self.data1 = np.roll(self.data1, -1)
-        self.data2 = np.roll(self.data2, -1)
-        self.data3 = np.roll(self.data3, -1)
-        self.data4 = np.roll(self.data4, -1)
-        self.data5 = np.roll(self.data5, -1)
-        self.data6 = np.roll(self.data6, -1)
-        self.data1[-1] = self.latest_data[0]
-        self.data2[-1] = self.latest_data[1]
-        self.data3[-1] = self.latest_data[2]
-        self.data4[-1] = self.latest_data[3]
-        self.data5[-1] = self.latest_data[4]
-        self.data6[-1] = self.latest_data[5]
 
-        self.curve1.setData(self.data1) # update
-        self.curve2.setData(self.data2) # update
-        self.curve3.setData(self.data3) # update
-        self.curve4.setData(self.data4) # update
-        self.curve5.setData(self.data5) # update
-        self.curve6.setData(self.data6) # update
+        if (self.latest_data.size > 0):
+            chunk_size = self.latest_data.shape[1]
+
+            # shift old data
+            self.data1 = np.roll(self.data1, -chunk_size)
+            self.data2 = np.roll(self.data2, -chunk_size)
+            self.data3 = np.roll(self.data3, -chunk_size)
+            self.data4 = np.roll(self.data4, -chunk_size)
+            self.data5 = np.roll(self.data5, -chunk_size)
+            self.data6 = np.roll(self.data6, -chunk_size)
+
+            # read new data into data buffers
+            self.data1[-chunk_size:] = self.latest_data[0]
+            self.data2[-chunk_size:] = self.latest_data[1]
+            self.data3[-chunk_size:] = self.latest_data[2]
+            self.data4[-chunk_size:] = self.latest_data[3]
+            self.data5[-chunk_size:] = self.latest_data[4]
+            self.data6[-chunk_size:] = self.latest_data[5]
+
+            # update
+            self.curve1.setData(self.data1)
+            self.curve2.setData(self.data2) 
+            self.curve3.setData(self.data3) 
+            self.curve4.setData(self.data4) 
+            self.curve5.setData(self.data5)  
+            self.curve6.setData(self.data6)
+
+            self.latest_data = np.empty((6, 0))
 
 def convert_to_float(buffer):
     
@@ -175,7 +186,7 @@ def convert_to_float(buffer):
     #scaled = [data[i:i+12].astype(np.float32) / [16384, 16384, 16384, 131, 131,131] - bias for i in range(0, len(data), 12)]
     
 
-    data_arr = np.frombuffer(buffer, dtype=np.int16).astype(np.float32)
+    data_arr = np.frombuffer(buffer, dtype='>i2').astype(np.float32)
     data_arr = data_arr.reshape(-1,6)
     scaled = (data_arr / [16384,16384,16384,131,131,131]) - bias
     scaled = scaled.T
