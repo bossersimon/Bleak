@@ -4,27 +4,22 @@
 import asyncio
 import struct
 from bleak import BleakClient
-#import csv
-#from multiprocessing import Process, Queue
-#import time
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore
-#from PyQt6.QtWidgets import QApplication
-#from PyQt6 import QtWidgets
-from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout, QPushButton
+from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout
 import sys
 import qasync
 
-address = "28:37:2F:6A:B1:42"
-CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c"
-PARAMS_UUID = "97b28d55-f227-4568-885a-4db649a8e9fd"
+address = "28:37:2F:6A:B1:42" # ESP MAC address
+CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c" # Data characteristic
+PARAMS_UUID = "97b28d55-f227-4568-885a-4db649a8e9fd" # Parameter characteristic
 
-accel_data = np.array([0,0,0])
-gyro_data = np.array([0,0,0])
+# Scale parameters
 acc_divider = 16384
 gyro_divider = 131
-bias = []
+dividers = [acc_divider, acc_divider, acc_divider, gyro_divider, gyro_divider, gyro_divider]
+bias_values = [0,0,0]
 
 GYRO_SCALES = {
     "250DPS": 0x00,
@@ -40,30 +35,25 @@ ACC_SCALES = {
     "16G": 0x18
 }
 
+# Manages BLE communication and reads data asynchronously
 class BLEWorker(QtCore.QObject):
     data_received = QtCore.pyqtSignal(list)
 
     def __init__(self, address, loop, parent = None):
         super().__init__()
         self.loop = loop
-        self.address = address
-       # self.client = None
+        self.address = address #ESP MAC
 
-# called when new data is received
+    # Called when new data is received
     async def notification_handler(self, sender, data):
-        # Multiple data points at a time:
-
-#        received = np.array(bytearray(data), dtype=np.byte)
-#        received.shape = (len(received)/12, 12)
         
-        #received = [struct.unpack('>hhhhhh', data[i:i+12]) for i in range(0,len(data), 12)]
         received = convert_to_float(data)
-        print(f"shape received: {np.shape(received)}\n")
+        #print(f"shape received: {np.shape(received)}\n")
         
         self.data_received.emit(received.flatten().tolist()) # emits to read_data()
 
 
-    async def read_BLE(self):
+    async def read_ble(self):
         # Connect to ESP
         async with BleakClient(self.address) as client:
 
@@ -76,22 +66,21 @@ class BLEWorker(QtCore.QObject):
 
             # for bias and scale correction
             param_data = await client.read_gatt_char(PARAMS_UUID)
-            global bias
-            bias = [int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2)]
+            global bias_values
+            bias_values = [int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2)]
 
-            print("Adjustment values:", bias)
+            # print("Adjustment values:", bias_values)
 
             await client.start_notify(CHARACTERISTIC_UUID, self.notification_handler)
             
-            print("start notify complete")
+            # print("start notify complete")
 
             while True:
                 await asyncio.sleep(0.1)
 
     # create tasks
-    def start_BLE(self):
-        asyncio.run_coroutine_threadsafe(self.read_BLE(), self.loop)  # Delayed execution
-        #asyncio.create_task(self.read_BLE())
+    def start_ble(self):
+        asyncio.run_coroutine_threadsafe(self.read_ble(), self.loop)  # Submit coroutine to loop 
 
 class PlotWindow(QWidget):
 
@@ -99,7 +88,7 @@ class PlotWindow(QWidget):
 
         super().__init__()
 
-        layout = QGridLayout()  # Create a layout
+        layout = QGridLayout()
 
         self.pw1 = pg.PlotWidget(title="ax")
         self.pw2 = pg.PlotWidget(title="ay")
@@ -116,7 +105,7 @@ class PlotWindow(QWidget):
         layout.addWidget(self.pw6, 1,2)
 
         self.setLayout(layout)
-        
+
         self.curve1 = self.pw1.plot(pen="w")
         self.curve2 = self.pw2.plot(pen="w")
         self.curve3 = self.pw3.plot(pen="w")
@@ -124,7 +113,7 @@ class PlotWindow(QWidget):
         self.curve5 = self.pw5.plot(pen="w")
         self.curve6 = self.pw6.plot(pen="w")
 
-# create empty data buffer
+        # create empty data buffers
         self.bufferSize = 500
         self.data1= np.zeros(self.bufferSize)
         self.data2= np.zeros(self.bufferSize)
@@ -132,21 +121,19 @@ class PlotWindow(QWidget):
         self.data4= np.zeros(self.bufferSize)
         self.data5= np.zeros(self.bufferSize)
         self.data6= np.zeros(self.bufferSize)
+        self.latest_data = np.empty((6,0)) 
 
-#        loop = asyncio.get_running_loop()
         self.loop = loop
         self.ble_worker = BLEWorker(address, loop)
         self.ble_worker.data_received.connect(self.read_data)
-        self.ble_worker.start_BLE()
+        self.ble_worker.start_ble()
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update)
         self.timer.start(50)
         
-        self.latest_data = np.empty((6,0)) 
 
     def read_data(self, new_data):
-        # new_data of unknown size
         self.latest_data = np.array(new_data).reshape(6,-1)
 
     def update(self):
@@ -182,13 +169,9 @@ class PlotWindow(QWidget):
 
 def convert_to_float(buffer):
     
-    #data = np.array(buffer, dtype=np.int16)
-    #scaled = [data[i:i+12].astype(np.float32) / [16384, 16384, 16384, 131, 131,131] - bias for i in range(0, len(data), 12)]
-    
-
     data_arr = np.frombuffer(buffer, dtype='>i2').astype(np.float32)
     data_arr = data_arr.reshape(-1,6)
-    scaled = (data_arr / [16384,16384,16384,131,131,131]) - bias
+    scaled = data_arr / dividers - bias_values
     scaled = scaled.T
 
     return scaled
@@ -196,14 +179,14 @@ def convert_to_float(buffer):
 
 if __name__ == "__main__":
 
-# Application for managing GUI application
+    # Application for managing GUI application
     app = QApplication(sys.argv)
-    loop = qasync.QEventLoop(app)
+    loop = qasync.QEventLoop(app) 
     asyncio.set_event_loop(loop)
 
     plot = PlotWindow(loop)
     plot.show()
-    QtCore.QTimer.singleShot(0, plot.ble_worker.start_BLE)
+    QtCore.QTimer.singleShot(0, plot.ble_worker.start_ble) # Ensures GUI is fully initialized (may also work without singleShot)
     
     with loop:
         loop.run_forever()
