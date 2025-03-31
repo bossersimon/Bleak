@@ -27,6 +27,7 @@
               p.pyqt6
               p.qasync
 
+              p.scipy
               p.bleak
             ]))
             pkgs.qt6.qtbase
