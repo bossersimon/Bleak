@@ -159,6 +159,10 @@ def generate_signals(plot):
     c2 = np.random.normal(size=N)
     c2 += 10*np.cos(2*np.pi*30*t1)*window
 
+
+    new_arr = np.hstack((c1.reshape(-1,1),c2.reshape(-1,1)))
+    np.savetxt("recording.txt", new_arr, delimiter=",", fmt="%.18e")
+
     f1 = fftshift(fft(c1)/len(c1))
     f2 = fftshift(fft(c2)/len(c2))
 
@@ -176,20 +180,30 @@ def generate_signals(plot):
     rows = np.array([c1,c2,np.abs(f1),np.abs(f2), argx, argy])
     plot.latest_data = rows
 
+def read_recording(plot):
+    loaded_data = np.loadtxt("recording.txt", delimiter = ",")
+#    print(f"loaded_data shape: {np.shape(loaded_data)}\n")
+    
+    loaded_data = loaded_data.T
+
+    plot.latest_data= np.empty((6,loaded_data.shape[1]))
+
+ #   plot.latest_data[:2,:] = loaded_data
+    plot.latest_data = loaded_data
+
 
 if __name__ == "__main__":
     app = pg.mkQApp()
     plot = PlotWindow()
-    generate_signals(plot)
+
+#    generate_signals(plot)
+    read_recording(plot)
+
     plot.show()
     app.exec()
 
-
-    """
-    with open("recording.txt") as file:
-#        print(file.read())
+"""
         lines = file.readlines()
-
         for line in lines:
             datapoint = (line.strip()).split(",")
-    """
+"""
