@@ -7,6 +7,8 @@ from pyqtgraph.Qt import QtCore
 from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout
 from scipy.fft import fft, ifft, fftshift, fftfreq
 
+from scipy.signal import butter,lfilter,filtfilt
+
 import csv
 import math
 
@@ -48,6 +50,9 @@ class PlotWindow(QWidget):
         self.curve5 = self.pw5.plot(pen="w")
         self.curve6 = self.pw6.plot(pen="w")
 
+        self.curve12 = self.pw1.plot(pen="r")
+        self.curve22 = self.pw2.plot(pen="r")
+
         # create empty data buffers
         self.bufferSize = 500
         self.data1= np.zeros(self.bufferSize)
@@ -55,8 +60,8 @@ class PlotWindow(QWidget):
         self.data3= np.zeros(self.bufferSize)
         self.data4= np.zeros(self.bufferSize)
         self.data5= np.zeros(self.bufferSize)
-        self.data6= np.zeros(self.bufferSize)
         self.latest_data = np.empty((6,0)) 
+        self.data6= np.zeros(self.bufferSize)
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update)
@@ -66,33 +71,49 @@ class PlotWindow(QWidget):
         
     def update(self):
         i = self.counter
+
+        order = 6
+        # . One gotcha is that Wn is a fraction of the Nyquist frequency. So if the sampling rate is 1000Hz and you want a cutoff of 250Hz, you should use Wn=0.5
+        Wn = 0.5
+        b, a = butter(order, Wn, 'low')
+
+        chunk_size = 100
+        fs = 100
+
         if i<=990:
-            chunk_size = 100
-            fs = 100
             t1 = np.arange(chunk_size,dtype=float)/fs
             freqs = fftshift(fftfreq(100, d = 1/fs))
 
-            self.data1 = self.latest_data[0]
-            self.data2 = self.latest_data[1]
+            self.data1 = self.latest_data[0] # acc_x
+            self.data2 = self.latest_data[1] # acc_y
 
             c1 = self.data1[i*10:i*10+100]
             c2 = self.data2[i*10:i*10+100]
 
-            f1 = fftshift(fft(c1)/len(c1))
-            f2 = fftshift(fft(c2)/len(c2))
+            d1 = output_signal = filtfilt(b, a, c1)
+            d2 = output_signal = filtfilt(b, a, c2)
+
+            f1 = fftshift(fft(c1)/len(c1)) # fft_x
+            f2 = fftshift(fft(c2)/len(c2)) # fft_y
+
 
             f1[np.abs(f1)<1e-6]=0
             f2[np.abs(f2)<1e-6]=0
+
+            f1[np.abs(f1) != np.max(np.abs(f1))] = 0
+            f2[np.abs(f2) != np.max(np.abs(f2))] = 0
 
             freqs = fftshift(fftfreq(len(c1), d = 1/fs))
 
             argx = np.angle(f1)
             argy = np.angle(f2)
 
+            """
             self.data3 = np.abs(f1)
             self.data4 = np.abs(f2)
             self.data5 = argx
             self.data6 = argy
+            """
 
             """
             self.data3 = self.latest_data[2]
@@ -116,16 +137,20 @@ class PlotWindow(QWidget):
             """
 
                 # update
-            self.curve1.setData(t1,self.data1[i*10:i*10+100])
-            self.curve2.setData(t1,self.data2[i*10:i*10+100]) 
-            self.curve3.setData(freqs,self.data3) 
-            self.curve4.setData(freqs,self.data4) 
-            self.curve5.setData(freqs,self.data5) 
-            self.curve6.setData(freqs,self.data6) 
+            self.curve1.setData(t1,c1)
+            self.curve2.setData(t1,c2) 
+            self.curve3.setData(freqs,np.abs(f1)) 
+            self.curve4.setData(freqs,np.abs(f2)) 
+            self.curve5.setData(freqs,argx) 
+            self.curve6.setData(freqs,argy) 
+
+            self.curve12.setData(t1,d1)
+            self.curve22.setData(t1,d2) 
 
         self.counter +=1
 
 #        self.latest_data = np.empty((4, 0))
+
 
 def convert_to_float():
    
@@ -149,27 +174,37 @@ def generate_signals(plot):
     fs = 100 # sampling frequency
     T = 100 # signal length
     N = T*fs # number of samples
+    f = 10
+
+    order = 6
+        # . One gotcha is that Wn is a fraction of the Nyquist frequency. So if the sampling rate is 1000Hz and you want a cutoff of 250Hz, you should use Wn=0.5
+    Wn = 0.5
+    b, a = butter(order, Wn, 'low')
+
+    chunk_size = 100
 
 #    window = np.hanning(1000)
     window = 1
     t1 = np.arange(N,dtype=float)/fs
     c1 = np.random.normal(size=N)
-    c1 += 10*np.sin(2*np.pi *30*t1)*window
+    c1 += 10*np.sin(2*np.pi *f*t1)*window
 
     c2 = np.random.normal(size=N)
-    c2 += 10*np.cos(2*np.pi*30*t1)*window
+    c2 += 10*np.cos(2*np.pi*f*t1)*window
 
+    d1 = output_signal = filtfilt(b, a, c1)
+    d2 = output_signal = filtfilt(b, a, c2)
 
     new_arr = np.hstack((c1.reshape(-1,1),c2.reshape(-1,1)))
     np.savetxt("recording.txt", new_arr, delimiter=",", fmt="%.18e")
 
-    f1 = fftshift(fft(c1)/len(c1))
-    f2 = fftshift(fft(c2)/len(c2))
+    f1 = fftshift(fft(d1)/len(d1))
+    f2 = fftshift(fft(d2)/len(d2))
 
     f1[np.abs(f1)<1e-6]=0
     f2[np.abs(f2)<1e-6]=0
 
-    freqs = fftshift(fftfreq(len(c1), d = 1/fs))
+    freqs = fftshift(fftfreq(len(d1), d = 1/fs))
 
     argx = np.angle(f1)
     argy = np.angle(f2)
@@ -196,8 +231,8 @@ if __name__ == "__main__":
     app = pg.mkQApp()
     plot = PlotWindow()
 
-#    generate_signals(plot)
-    read_recording(plot)
+    generate_signals(plot)
+    #read_recording(plot)
 
     plot.show()
     app.exec()
