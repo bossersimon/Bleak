@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout
 import sys
 import qasync
 import csv
+import signal
 
 address = "DC:1E:D5:1B:E9:FE" # ESP MAC address
 CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c" # Data characteristic
@@ -69,7 +70,7 @@ class BLEWorker(QtCore.QObject):
             global bias_values
             bias_values = [int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2)]
 
-            # print("Adjustment values:", bias_values)
+            #print("Adjustment values:", bias_values)
 
             await client.start_notify(CHARACTERISTIC_UUID, self.notification_handler)
             
@@ -192,6 +193,8 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     loop = qasync.QEventLoop(app) 
     asyncio.set_event_loop(loop)
+
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     f,writer = setup_csv()
     plot = PlotWindow(loop, writer)
