@@ -15,7 +15,7 @@ import asyncio
 import qasync
 import signal
 
-"""
+
 address = "DC:1E:D5:1B:E9:FE" # ESP MAC address
 CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c" # Data characteristic
 PARAMS_UUID = "97b28d55-f227-4568-885a-4db649a8e9fd" # Parameter characteristic
@@ -25,11 +25,11 @@ acc_divider = 16384
 gyro_divider = 131
 dividers = [acc_divider, acc_divider, acc_divider, gyro_divider, gyro_divider, gyro_divider]
 bias_values = [0,0,0]
-"""
+
 
 class PlotWindow(QWidget):
 
-    def __init__(self):
+    def __init__(self, loop):
 
         super().__init__()
 
@@ -69,7 +69,7 @@ class PlotWindow(QWidget):
         self.curve22 = self.pw2.plot(pen="r")
 
         # create empty data buffers
-        self.bufferSize = 500
+        self.bufferSize = 100 
         self.data1= np.zeros(self.bufferSize)
         self.data2= np.zeros(self.bufferSize)
         self.data3= np.zeros(self.bufferSize)
@@ -78,105 +78,83 @@ class PlotWindow(QWidget):
         self.latest_data = np.empty((6,0)) 
         self.data6= np.zeros(self.bufferSize)
 
-        """
         self.loop = loop
         self.ble_worker = BLEWorker(address,loop)
         self.ble_worker.data_received.connect(self.read_data)
         self.ble_worker.start_ble()
-        """
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update)
         self.timer.start(50)
 
-        self.counter = 0
+        # for recorded data
+        self.recorded_data = np.empty((6,0))
+        self.count=0
 
-    """
+
     def read_data(self, new_data):
         self.latest_data = np.array(new_data).reshape(6,-1)
-    """
         
     def update(self):
-        i = self.counter
+            
+        if self.recorded_data.size>0: # if recording
+            chunk_size=10
+            self.latest_data = self.recorded_data[:,self.count*10:self.count*10+100]
 
+        else: 
+            chunk_size = self.latest_data.shape[1]
         order = 6
         # . One gotcha is that Wn is a fraction of the Nyquist frequency. So if the sampling rate is 1000Hz and you want a cutoff of 250Hz, you should use Wn=0.5
-        Wn = 0.5
-        b, a = butter(order, Wn, 'low')
+        Wn = 0.5  # 100 Hz -> 10 Hz cutoff
+        b, a = butter(order, Wn, 'low') 
 
-        chunk_size = 100
+#            chunk_size = 100
+        window_size = self.bufferSize 
         fs = 100
-        t1 = np.arange(chunk_size,dtype=float)/fs
+        t1 = np.arange(window_size,dtype=float)/fs
 
-        freqs = fftshift(fftfreq(100, d = 1/fs))
+        # shift old data (here we only care about accelerometer)
+        self.data1 = np.roll(self.data1, -chunk_size) 
+        self.data2 = np.roll(self.data2, -chunk_size) 
 
-        self.data1 = self.latest_data[0] # acc_x
-        self.data2 = self.latest_data[1] # acc_y
+        # read new data into data buffers
+        self.data1[-chunk_size:] = self.latest_data[0]
+        self.data2[-chunk_size:] = self.latest_data[1]
 
-        max_idx = int(np.shape(self.latest_data)[1]/10)//10 *10 
+        # calculate fft, arguments
+        xl = filtfilt(b, a, self.data1)
+        yl = filtfilt(b, a, self.data2)
 
-        if i<max_idx-2:
+        f1 = fftshift(fft(xl)/len(xl)) # fft_x
+        f2 = fftshift(fft(yl)/len(yl)) # fft_y
 
-            c1 = self.data1[i*10:i*10+100]
-            c2 = self.data2[i*10:i*10+100]
+        f1[np.abs(f1)<1e-6]=0  # remove tiny noise components
+        f2[np.abs(f2)<1e-6]=0
 
-            d1 = output_signal = filtfilt(b, a, c1)
-            d2 = output_signal = filtfilt(b, a, c2)
+        # exctracts largest peak
+        #f1[np.abs(f1) != np.max(np.abs(f1))] = 0
+        #f2[np.abs(f2) != np.max(np.abs(f2))] = 0
 
-            f1 = fftshift(fft(c1)/len(c1)) # fft_x
-            f2 = fftshift(fft(c2)/len(c2)) # fft_y
+        freqs = fftshift(fftfreq(len(xl), d = 1/fs))
 
-            f1[np.abs(f1)<1e-6]=0
-            f2[np.abs(f2)<1e-6]=0
+        argx = np.angle(f1)
+        argy = np.angle(f2)
 
-            #f1[np.abs(f1) != np.max(np.abs(f1))] = 0
-            #f2[np.abs(f2) != np.max(np.abs(f2))] = 0
+        # update
+        self.curve1.setData(t1,self.data1) # ax
+        self.curve2.setData(t1,self.data2) # ay
+        self.curve3.setData(freqs,np.abs(f1)) 
+        self.curve4.setData(freqs,np.abs(f2)) 
+        self.curve5.setData(freqs,argx) 
+        self.curve6.setData(freqs,argy) 
 
-            freqs = fftshift(fftfreq(len(c1), d = 1/fs))
+        # filtered curves
+        self.curve12.setData(t1,xl)
+        self.curve22.setData(t1,yl) 
 
-            argx = np.angle(f1)
-            argy = np.angle(f2)
+        self.latest_data = np.empty((6, 0))
+        self.count +=1
 
-            """
-            self.data3 = np.abs(f1)
-            self.data4 = np.abs(f2)
-            self.data5 = argx
-            self.data6 = argy
-            """
-
-            """
-            self.data3 = self.latest_data[2]
-            self.data4 = self.latest_data[3]
-            self.data5 = self.latest_data[4]
-            self.data6 = self.latest_data[5]
-            """
-
-            """ # shift old data self.data1 = np.roll(self.data1, -chunk_size) self.data2 = np.roll(self.data2, -chunk_size) self.data3 = np.roll(self.data3, -chunk_size)
-            self.data4 = np.roll(self.data4, -chunk_size)
-
-            # read new data into data buffers
-            self.data1[-chunk_size:] = self.latest_data[0]
-            self.data2[-chunk_size:] = self.latest_data[1]
-            self.data3[-chunk_size:] = self.latest_data[2]
-            self.data4[-chunk_size:] = self.latest_data[3]
-            """
-
-                # update
-            self.curve1.setData(t1,c1)
-            self.curve2.setData(t1,c2) 
-            self.curve3.setData(freqs,np.abs(f1)) 
-            self.curve4.setData(freqs,np.abs(f2)) 
-            self.curve5.setData(freqs,argx) 
-            self.curve6.setData(freqs,argy) 
-
-            self.curve12.setData(t1,d1)
-            self.curve22.setData(t1,d2) 
-
-        self.counter +=1
-
-#        self.latest_data = np.empty((4, 0))
-
-"""
 # Manages BLE communication and reads data asynchronously
 class BLEWorker(QtCore.QObject):
     data_received = QtCore.pyqtSignal(list)
@@ -234,15 +212,8 @@ def convert_to_float():
     scaled = data_arr / dividers - bias_values
     scaled = scaled.T
 
-    # Implement windowing here? 
-
-    # fft (of accelerometer in x, y)
-    X = fft(scaled[0,:])
-    Y = fft(scaled[1,:])
-#    argx = 
-
     return scaled
-"""
+
 
 def generate_signals(plot):
     fs = 100 # sampling frequency
@@ -292,18 +263,14 @@ def generate_signals(plot):
 
 def read_recording(plot):
     loaded_data = np.loadtxt("recording2.txt", delimiter = ",")
-#    print(f"loaded_data shape: {np.shape(loaded_data)}\n")
-    
     loaded_data = loaded_data.T
-
-    plot.latest_data= np.empty((6,loaded_data.shape[1]))
-
- #   plot.latest_data[:2,:] = loaded_data
-    plot.latest_data = loaded_data
+    plot.recorded_data = loaded_data
 
 if __name__ == "__main__":
     app = pg.mkQApp()
-    plot = PlotWindow()
+    loop = qasync.QEventLoop(app)
+    asyncio.set_event_loop(loop)
+    plot = PlotWindow(loop)
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     #generate_signals(plot)
