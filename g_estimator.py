@@ -110,12 +110,15 @@ class PlotWindow(QWidget):
 
         freqs = fftshift(fftfreq(100, d = 1/fs))
 
-        if i<=990:
-            self.data1 = self.latest_data[0] # acc_x
-            self.data2 = self.latest_data[1] # acc_y
+        self.data1 = self.latest_data[0] # acc_x
+        self.data2 = self.latest_data[1] # acc_y
 
-            d1 = self.data1[i*10:i*10+100]
-            d2 = self.data2[i*10:i*10+100]
+        max_idx = int(np.shape(self.latest_data)[1]/10)//10 *10 
+
+        if i<max_idx-2:
+
+            c1 = self.data1[i*10:i*10+100]
+            c2 = self.data2[i*10:i*10+100]
 
             d1 = output_signal = filtfilt(b, a, c1)
             d2 = output_signal = filtfilt(b, a, c2)
@@ -126,8 +129,8 @@ class PlotWindow(QWidget):
             f1[np.abs(f1)<1e-6]=0
             f2[np.abs(f2)<1e-6]=0
 
-            f1[np.abs(f1) != np.max(np.abs(f1))] = 0
-            f2[np.abs(f2) != np.max(np.abs(f2))] = 0
+            #f1[np.abs(f1) != np.max(np.abs(f1))] = 0
+            #f2[np.abs(f2) != np.max(np.abs(f2))] = 0
 
             freqs = fftshift(fftfreq(len(c1), d = 1/fs))
 
@@ -288,7 +291,7 @@ def generate_signals(plot):
     plot.latest_data = rows
 
 def read_recording(plot):
-    loaded_data = np.loadtxt("recording1.txt", delimiter = ",")
+    loaded_data = np.loadtxt("recording2.txt", delimiter = ",")
 #    print(f"loaded_data shape: {np.shape(loaded_data)}\n")
     
     loaded_data = loaded_data.T
