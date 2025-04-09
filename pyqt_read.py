@@ -2,7 +2,6 @@
 # pyqt_read.py
 
 import asyncio
-import struct
 from bleak import BleakClient
 import numpy as np
 import pyqtgraph as pg
@@ -10,6 +9,7 @@ from pyqtgraph.Qt import QtCore
 from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout
 import sys
 import qasync
+import csv
 
 address = "DC:1E:D5:1B:E9:FE" # ESP MAC address
 CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c" # Data characteristic
@@ -84,7 +84,7 @@ class BLEWorker(QtCore.QObject):
 
 class PlotWindow(QWidget):
 
-    def __init__(self, loop):
+    def __init__(self, loop, file_writer):
 
         super().__init__()
 
@@ -131,10 +131,15 @@ class PlotWindow(QWidget):
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update)
         self.timer.start(50)
+
+        # Recording
+        self.recording = np.empty((0,6))
         
+        self.writer = file_writer
 
     def read_data(self, new_data):
         self.latest_data = np.array(new_data).reshape(6,-1)
+        self.writer.writerows(self.latest_data.T)
 
     def update(self):
 
@@ -176,6 +181,10 @@ def convert_to_float(buffer):
 
     return scaled
 
+def setup_csv():
+    f = open("recording.txt", "a", newline="")
+    writer = csv.writer(f)
+    return f,writer
 
 if __name__ == "__main__":
 
@@ -184,7 +193,8 @@ if __name__ == "__main__":
     loop = qasync.QEventLoop(app) 
     asyncio.set_event_loop(loop)
 
-    plot = PlotWindow(loop)
+    f,writer = setup_csv()
+    plot = PlotWindow(loop, writer)
     plot.show()
     QtCore.QTimer.singleShot(0, plot.ble_worker.start_ble) # Ensures GUI is fully initialized (may also work without singleShot)
     
