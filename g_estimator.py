@@ -69,7 +69,7 @@ class PlotWindow(QWidget):
         self.curve22 = self.pw2.plot(pen="r")
 
         # create empty data buffers
-        self.bufferSize = 100 
+        self.bufferSize = 500 
         self.data1= np.zeros(self.bufferSize)
         self.data2= np.zeros(self.bufferSize)
         self.data3= np.zeros(self.bufferSize)
@@ -99,10 +99,12 @@ class PlotWindow(QWidget):
             
         if self.recorded_data.size>0: # if recording
             chunk_size=10
-            self.latest_data = self.recorded_data[:,self.count*10:self.count*10+100]
+            self.latest_data = self.recorded_data[:,self.count*chunk_size:(self.count+1)*chunk_size]
 
         else: 
             chunk_size = self.latest_data.shape[1]
+
+
         order = 6
         # . One gotcha is that Wn is a fraction of the Nyquist frequency. So if the sampling rate is 1000Hz and you want a cutoff of 250Hz, you should use Wn=0.5
         Wn = 0.5  # 100 Hz -> 10 Hz cutoff
@@ -120,6 +122,19 @@ class PlotWindow(QWidget):
         # read new data into data buffers
         self.data1[-chunk_size:] = self.latest_data[0]
         self.data2[-chunk_size:] = self.latest_data[1]
+
+        # DC blocker
+        beta = 0.99
+        gain = (1.0+beta)/2.0
+        in_x = self.data1
+        in_y = self.data2
+        out_x, out_y = [0],[0]
+        for j in range(len(in_x)):
+            if j:
+                out_x.append(gain*(in_x[j]-in_x[j-1])+beta*out_x[j-1])
+                out_y.append(gain*(in_x[j]-in_x[j-1])+beta*out_x[j-1])
+        self.data1 = out_x
+        self.data2 = out_y
 
         # calculate fft, arguments
         xl = filtfilt(b, a, self.data1)
