@@ -42,13 +42,14 @@ class PlotWindow(QWidget):
         self.pw5 = pg.PlotWidget(title="arg(X)")
         self.pw6 = pg.PlotWidget(title="arg(Y)")
 
+        """
         self.pw1.resize(1000,800)
         self.pw2.resize(1000,800)
         self.pw3.resize(1000,800)
         self.pw4.resize(1000,800)
         self.pw5.resize(1000,800)
         self.pw6.resize(1000,800)
-       
+        """
         layout.addWidget(self.pw1, 0,0)
         layout.addWidget(self.pw2, 0,1)
         layout.addWidget(self.pw3, 0,2)
@@ -69,7 +70,7 @@ class PlotWindow(QWidget):
         self.curve22 = self.pw2.plot(pen="r")
 
         # create empty data buffers
-        self.bufferSize = 500 
+        self.bufferSize = 100 
         self.data1= np.zeros(self.bufferSize)
         self.data2= np.zeros(self.bufferSize)
         self.data3= np.zeros(self.bufferSize)
@@ -101,9 +102,11 @@ class PlotWindow(QWidget):
             chunk_size=10
             self.latest_data = self.recorded_data[:,self.count*chunk_size:(self.count+1)*chunk_size]
 
-        else: 
+        elif self.latest_data.shape[1]: 
             chunk_size = self.latest_data.shape[1]
 
+        else:
+            return
 
         order = 6
         # . One gotcha is that Wn is a fraction of the Nyquist frequency. So if the sampling rate is 1000Hz and you want a cutoff of 250Hz, you should use Wn=0.5
@@ -123,6 +126,7 @@ class PlotWindow(QWidget):
         self.data1[-chunk_size:] = self.latest_data[0]
         self.data2[-chunk_size:] = self.latest_data[1]
 
+        """
         # DC blocker
         beta = 0.99
         gain = (1.0+beta)/2.0
@@ -135,6 +139,7 @@ class PlotWindow(QWidget):
                 out_y.append(gain*(in_x[j]-in_x[j-1])+beta*out_x[j-1])
         self.data1 = out_x
         self.data2 = out_y
+        """
 
         # calculate fft, arguments
         xl = filtfilt(b, a, self.data1)
@@ -181,10 +186,8 @@ class BLEWorker(QtCore.QObject):
 
     # Called when new data is received
     async def notification_handler(self, sender, data):
-        
         received = convert_to_float(data)
         #print(f"shape received: {np.shape(received)}\n")
-        
         self.data_received.emit(received.flatten().tolist()) # emits to read_data()
 
 
@@ -219,7 +222,7 @@ class BLEWorker(QtCore.QObject):
 
 
 
-def convert_to_float():
+def convert_to_float(buffer):
    
     # Scale and bias correction from raw data
     data_arr = np.frombuffer(buffer, dtype='>i2').astype(np.float32)
@@ -285,11 +288,16 @@ if __name__ == "__main__":
     app = pg.mkQApp()
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
-    plot = PlotWindow(loop)
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    #generate_signals(plot)
-    read_recording(plot)
 
+    plot = PlotWindow(loop)
+    #generate_signals(plot)
+#    read_recording(plot)
     plot.show()
-    app.exec()
+    QtCore.QTimer.singleShot(0,plot.ble_worker.start_ble)
+
+    with loop:
+        loop.run_forever()
+   # app.exec()
+
