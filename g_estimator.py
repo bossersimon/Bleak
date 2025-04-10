@@ -95,6 +95,13 @@ class PlotWindow(QWidget):
 
     def read_data(self, new_data):
         self.latest_data = np.array(new_data).reshape(6,-1)
+
+    async def cleanup(self):
+        print("Disconnecting...")
+
+        if self.ble_worker.client and self.ble_worker.client.is_connected:
+            await self.ble_worker.client.disconnect()
+            print("Device disconnected.")
         
     def update(self):
             
@@ -183,6 +190,7 @@ class BLEWorker(QtCore.QObject):
         super().__init__()
         self.loop = loop
         self.address = address #ESP MAC
+        self.client = BleakClient(self.address)
 
     # Called when new data is received
     async def notification_handler(self, sender, data):
@@ -193,7 +201,7 @@ class BLEWorker(QtCore.QObject):
 
     async def read_ble(self):
         # Connect to ESP
-        async with BleakClient(self.address) as client:
+        async with self.client as client:
 
             #a_scale = ACC_SCALES["2G"]
             #g_scale = GYRO_SCALES["250DPS"]
@@ -201,7 +209,7 @@ class BLEWorker(QtCore.QObject):
             # send scale parameters to ESP
             #scales = bytes([a_scale, g_scale], 'big')
             #await client.write_gatt_char(PARAMS_UUID, scales)
-
+    
             # for bias and scale correction
             param_data = await client.read_gatt_char(PARAMS_UUID)
             global bias_values
@@ -219,7 +227,6 @@ class BLEWorker(QtCore.QObject):
     # create tasks
     def start_ble(self):
         asyncio.run_coroutine_threadsafe(self.read_ble(), self.loop)  # Submit coroutine to loop 
-
 
 
 def convert_to_float(buffer):
@@ -284,14 +291,29 @@ def read_recording(plot):
     loaded_data = loaded_data.T
     plot.recorded_data = loaded_data
 
+def setup_graceful_shutdown(loop, plot):
+    def signal_handler(*args):
+        print("Caught SIGINT, shutting down...")
+        asyncio.ensure_future(shutdown())
+
+    async def shutdown():
+        await plot.cleanup()
+        loop.stop()
+
+    signal.signal(signal.SIGINT,signal_handler)
+    app.aboutToQuit.connect(lambda: asyncio.ensure_future(shutdown()))
+        
+
 if __name__ == "__main__":
     app = pg.mkQApp()
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
 
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
+  #  signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     plot = PlotWindow(loop)
+    setup_graceful_shutdown(loop,plot)
+
     #generate_signals(plot)
 #    read_recording(plot)
     plot.show()
