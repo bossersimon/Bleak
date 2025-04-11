@@ -41,21 +41,15 @@ class PlotWindow(QWidget):
         self.pw4 = pg.PlotWidget(title="Y")
         self.pw5 = pg.PlotWidget(title="arg(X)")
         self.pw6 = pg.PlotWidget(title="arg(Y)")
+        self.pw7 = pg.PlotWidget(title="phase_x")
 
-        """
-        self.pw1.resize(1000,800)
-        self.pw2.resize(1000,800)
-        self.pw3.resize(1000,800)
-        self.pw4.resize(1000,800)
-        self.pw5.resize(1000,800)
-        self.pw6.resize(1000,800)
-        """
         layout.addWidget(self.pw1, 0,0)
         layout.addWidget(self.pw2, 0,1)
         layout.addWidget(self.pw3, 0,2)
         layout.addWidget(self.pw4, 1,0)
         layout.addWidget(self.pw5, 1,1)
         layout.addWidget(self.pw6, 1,2)
+        layout.addWidget(self.pw7, 2,0)
 
         self.setLayout(layout)
 
@@ -69,15 +63,18 @@ class PlotWindow(QWidget):
         self.curve12 = self.pw1.plot(pen="r")
         self.curve22 = self.pw2.plot(pen="r")
 
+        self.curve7 = self.pw7.plot(pen="g")
+        self.curve8 = self.pw7.plot(pen="b")
+
         # create empty data buffers
-        self.bufferSize = 100 
+        self.bufferSize = 200 
         self.data1= np.zeros(self.bufferSize)
         self.data2= np.zeros(self.bufferSize)
         self.data3= np.zeros(self.bufferSize)
         self.data4= np.zeros(self.bufferSize)
         self.data5= np.zeros(self.bufferSize)
-        self.latest_data = np.empty((6,0)) 
         self.data6= np.zeros(self.bufferSize)
+        self.latest_data = np.empty((6,0)) 
 
         self.loop = loop
         self.ble_worker = BLEWorker(address,loop)
@@ -128,6 +125,8 @@ class PlotWindow(QWidget):
         # shift old data (here we only care about accelerometer)
         self.data1 = np.roll(self.data1, -chunk_size) 
         self.data2 = np.roll(self.data2, -chunk_size) 
+        self.data3 = np.roll(self.data3, -chunk_size) 
+        self.data4 = np.roll(self.data4, -chunk_size) 
 
         # read new data into data buffers
         self.data1[-chunk_size:] = self.latest_data[0]
@@ -157,23 +156,44 @@ class PlotWindow(QWidget):
 
         f1[np.abs(f1)<1e-6]=0  # remove tiny noise components
         f2[np.abs(f2)<1e-6]=0
-
+    
         # exctracts largest peak
         #f1[np.abs(f1) != np.max(np.abs(f1))] = 0
         #f2[np.abs(f2) != np.max(np.abs(f2))] = 0
 
         freqs = fftshift(fftfreq(len(xl), d = 1/fs))
 
+        # remove DC
+        th = 1.0
+        mask = freqs > th
+        peak_x_idx = np.argmax(np.abs(f1[mask]))
+        peak_y_idx = np.argmax(np.abs(f2[mask]))
+        peak_x = freqs[mask][peak_x_idx]
+        peak_y = freqs[mask][peak_y_idx]
+
+#        print(f"max x: {peak_x} Hz")
+#        print(f"max y: {peak_y} Hz")
+
         argx = np.angle(f1)
         argy = np.angle(f2)
+
+        peak_phase_x = np.angle(f1[mask][peak_x_idx])
+        peak_phase_y = np.angle(f2[mask][peak_y_idx])
+
+        print(f"argx : {np.degrees(peak_phase_x)}")
+        print(f"argy: {np.degrees(peak_phase_y)}")
 
         # update
         self.curve1.setData(t1,self.data1) # ax
         self.curve2.setData(t1,self.data2) # ay
         self.curve3.setData(freqs,np.abs(f1)) 
         self.curve4.setData(freqs,np.abs(f2)) 
+        #self.curve5.setData(freqs,argx) 
+        #self.curve6.setData(freqs,argy) 
+        
         self.curve5.setData(freqs,argx) 
         self.curve6.setData(freqs,argy) 
+
 
         # filtered curves
         self.curve12.setData(t1,xl)
@@ -315,11 +335,11 @@ if __name__ == "__main__":
     setup_graceful_shutdown(loop,plot)
 
     #generate_signals(plot)
-#    read_recording(plot)
+    read_recording(plot)
     plot.show()
-    QtCore.QTimer.singleShot(0,plot.ble_worker.start_ble)
+   # QtCore.QTimer.singleShot(0,plot.ble_worker.start_ble)
 
-    with loop:
-        loop.run_forever()
-   # app.exec()
+#    with loop:
+#        loop.run_forever()
+    app.exec()
 
