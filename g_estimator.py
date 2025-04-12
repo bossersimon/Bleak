@@ -63,8 +63,8 @@ class PlotWindow(QWidget):
         self.curve12 = self.pw1.plot(pen="r")
         self.curve22 = self.pw2.plot(pen="r")
 
-        self.curve7 = self.pw7.plot(pen="g")
-        self.curve8 = self.pw7.plot(pen="b")
+        self.curve7 = self.pw7.plot(symbol = "o")
+        self.curve8 = self.pw7.plot(symbol ="o")
 
         # create empty data buffers
         self.bufferSize = 200 
@@ -125,8 +125,6 @@ class PlotWindow(QWidget):
         # shift old data (here we only care about accelerometer)
         self.data1 = np.roll(self.data1, -chunk_size) 
         self.data2 = np.roll(self.data2, -chunk_size) 
-        self.data3 = np.roll(self.data3, -chunk_size) 
-        self.data4 = np.roll(self.data4, -chunk_size) 
 
         # read new data into data buffers
         self.data1[-chunk_size:] = self.latest_data[0]
@@ -177,23 +175,36 @@ class PlotWindow(QWidget):
         argx = np.angle(f1)
         argy = np.angle(f2)
 
+#        argx = np.unwrap(argx)
+#        argy = np.unwrap(argy)
+
         peak_phase_x = np.angle(f1[mask][peak_x_idx])
         peak_phase_y = np.angle(f2[mask][peak_y_idx])
 
-        print(f"argx : {np.degrees(peak_phase_x)}")
-        print(f"argy: {np.degrees(peak_phase_y)}")
+#        print(f"argx : {np.degrees(peak_phase_x)}")
+#        print(f"argy: {np.degrees(peak_phase_y)}")
+
+        # for phase plotting
+        self.data3 = np.roll(self.data3, -chunk_size) 
+        self.data4 = np.roll(self.data4, -chunk_size)
+
+        phase_values = np.full((2, chunk_size), np.nan)
+        phase_values[0,-1] = peak_phase_x
+        phase_values[1,-1] = peak_phase_y
+
+        self.data3[-chunk_size:] = phase_values[0,:]
+        self.data4[-chunk_size:] = phase_values[1,:]
 
         # update
         self.curve1.setData(t1,self.data1) # ax
         self.curve2.setData(t1,self.data2) # ay
         self.curve3.setData(freqs,np.abs(f1)) 
         self.curve4.setData(freqs,np.abs(f2)) 
-        #self.curve5.setData(freqs,argx) 
-        #self.curve6.setData(freqs,argy) 
-        
         self.curve5.setData(freqs,argx) 
         self.curve6.setData(freqs,argy) 
 
+        self.curve7.setData(self.data3)
+        self.curve8.setData(self.data4)
 
         # filtered curves
         self.curve12.setData(t1,xl)
