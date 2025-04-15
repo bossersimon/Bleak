@@ -50,15 +50,19 @@ class PlotWindow(QWidget):
         self.curve7 = self.pw7.plot(symbol = "o", symbolSize=5, symbolBrush="r")
         self.curve8 = self.pw7.plot(symbol ="o", symbolSize=5, symbolBrush="b")
 
+        self.windowSize = 200
+
         # create empty data buffers
-        self.bufferSize = 200 
+        self.bufferSize = 500 
         self.data1= np.zeros(self.bufferSize)
         self.data2= np.zeros(self.bufferSize)
         self.data3= np.zeros(self.bufferSize)
         self.data4= np.zeros(self.bufferSize)
         self.data5= np.zeros(self.bufferSize)
         self.data6= np.zeros(self.bufferSize)
-        self.latest_data = np.empty((6,0)) 
+        self.phase_x= np.zeros(self.windowSize)
+        self.phase_y= np.zeros(self.windowSize)
+        self.received_data = np.empty((6,0)) 
 
         self.loop = loop
         # for recorded data
@@ -81,7 +85,13 @@ class PlotWindow(QWidget):
 
 
     def read_data(self, new_data):
-        self.latest_data = np.array(new_data).reshape(6,-1)
+        self.received_data = np.array(new_data).reshape(6,-1)
+        self.data1 = self.data1.append(self.received_data[0])
+        self.data2 = self.data2.append(self.received_data[1])
+        self.data3 = self.data3.append(self.received_data[2])
+        self.data4 = self.data4.append(self.received_data[3])
+        self.data5 = self.data5.append(self.received_data[4])
+        self.data6 = self.data6.append(self.received_data[5])
 
 
     async def cleanup(self):
@@ -96,12 +106,12 @@ class PlotWindow(QWidget):
             
         if self.recorded_data.size>0: # if recording
             chunk_size=10
-            self.latest_data = self.recorded_data[:,self.count*chunk_size:(self.count+1)*chunk_size]
+            self.received_data = self.recorded_data[:,self.count*chunk_size:(self.count+1)*chunk_size]
 
-        elif self.latest_data.shape[1]: 
-            chunk_size = self.latest_data.shape[1]
+        elif self.received_data.shape[1]: 
+            chunk_size = self.received_data.shape[1]
 
-        else:
+        else: # no data received yet
             return
 
         order = 6
@@ -109,37 +119,19 @@ class PlotWindow(QWidget):
         Wn = 0.5  # 100 Hz -> 10 Hz cutoff
         b, a = butter(order, Wn, 'low') 
 
-#            chunk_size = 100
-        window_size = self.bufferSize 
-        fs = 100
-        t1 = np.arange(window_size,dtype=float)/fs
+        fs = 100 # sampling frequency
+        t1 = np.arange(self.windowSize,dtype=float)/fs
 
-        # shift old data (here we only care about accelerometer)
-        self.data1 = np.roll(self.data1, -chunk_size) 
-        self.data2 = np.roll(self.data2, -chunk_size) 
+        # shift one sample 
+        self.data1 = np.roll(self.data1, -1) 
+        self.data2 = np.roll(self.data2, -1) 
 
-        # read new data into data buffers
-        self.data1[-chunk_size:] = self.latest_data[0]
-        self.data2[-chunk_size:] = self.latest_data[1]
-
-        """
-        # DC blocker
-        beta = 0.99
-        gain = (1.0+beta)/2.0
-        in_x = self.data1
-        in_y = self.data2
-        out_x, out_y = [0],[0]
-        for j in range(len(in_x)):
-            if j:
-                out_x.append(gain*(in_x[j]-in_x[j-1])+beta*out_x[j-1])
-                out_y.append(gain*(in_x[j]-in_x[j-1])+beta*out_x[j-1])
-        self.data1 = out_x
-        self.data2 = out_y
-        """
+        acc_x = self.data1[:self.windowSize]
+        acc_y = self.data2[:self.windowSize]
 
         # calculate fft, arguments
-        xl = filtfilt(b, a, self.data1)
-        yl = filtfilt(b, a, self.data2)
+        xl = filtfilt(b, a, acc_x)
+        yl = filtfilt(b, a, acc_y)
 
         f1 = fftshift(fft(xl)/len(xl)) # fft_x
         f2 = fftshift(fft(yl)/len(yl)) # fft_y
@@ -147,13 +139,9 @@ class PlotWindow(QWidget):
         f1[np.abs(f1)<1e-6]=0  # remove tiny noise components
         f2[np.abs(f2)<1e-6]=0
     
-        # exctracts largest peak
-        #f1[np.abs(f1) != np.max(np.abs(f1))] = 0
-        #f2[np.abs(f2) != np.max(np.abs(f2))] = 0
-
         freqs = fftshift(fftfreq(len(xl), d = 1/fs))
 
-        # remove DC
+        # DC masking
         th = 1.0
         mask = freqs > th
         peak_x_idx = np.argmax(np.abs(f1[mask]))
@@ -161,24 +149,15 @@ class PlotWindow(QWidget):
         peak_x = freqs[mask][peak_x_idx]
         peak_y = freqs[mask][peak_y_idx]
 
-#        print(f"max x: {peak_x} Hz")
-#        print(f"max y: {peak_y} Hz")
-
         argx = np.angle(f1)
         argy = np.angle(f2)
-
-#        argx = np.unwrap(argx)
-#        argy = np.unwrap(argy)
 
         peak_phase_x = np.angle(f1[mask][peak_x_idx])
         peak_phase_y = np.angle(f2[mask][peak_y_idx])
 
-#        print(f"argx : {np.degrees(peak_phase_x)}")
-#        print(f"argy: {np.degrees(peak_phase_y)}")
-
         # for phase plotting
-        self.data3 = np.roll(self.data3, -chunk_size) 
-        self.data4 = np.roll(self.data4, -chunk_size)
+        self.phase_x = np.roll(self.phase_x, -1) 
+        self.phase_y = np.roll(self.phase_y, -1)
 
         phase_values = np.full((2, chunk_size), np.nan)
         phase_values[0,-1] = peak_phase_x
@@ -202,7 +181,7 @@ class PlotWindow(QWidget):
         self.curve12.setData(t1,xl)
         self.curve22.setData(t1,yl) 
 
-        self.latest_data = np.empty((6, 0))
+        self.received_data = np.empty((6, 0))
         self.count +=1
 
 
