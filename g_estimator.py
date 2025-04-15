@@ -25,17 +25,6 @@ dividers = [acc_divider, acc_divider, acc_divider, gyro_divider, gyro_divider, g
 bias_values = [0,0,0]
 
 
-def convert_to_float(buffer):
-   
-    # Scale and bias correction from raw data
-    data_arr = np.frombuffer(buffer, dtype='>i2').astype(np.float32)
-    data_arr = data_arr.reshape(-1,6)
-    scaled = data_arr / dividers - bias_values
-    scaled = scaled.T
-
-    return scaled
-
-
 def generate_signals(plot):
     fs = 100 # sampling frequency
     T = 100 # signal length
@@ -76,9 +65,6 @@ def generate_signals(plot):
     argx = np.angle(f1)
     argy = np.angle(f2)
 
-#    argx= np.unwrap(argx)
-#    argy= np.unwrap(argy)
-
     rows = np.array([c1,c2,np.abs(f1),np.abs(f2), argx, argy])
     plot.latest_data = rows
 
@@ -104,8 +90,6 @@ if __name__ == "__main__":
     app = pg.mkQApp()
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
-
-  #  signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     plot = PlotWindow(loop)
     plot.setup_worker(address)
