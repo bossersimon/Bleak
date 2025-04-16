@@ -11,6 +11,8 @@ import asyncio
 
 from bleworker import BLEWorker
 
+from collections import deque
+
 class PlotWindow(QWidget):
 
     def __init__(self, loop):
@@ -23,17 +25,17 @@ class PlotWindow(QWidget):
         self.pw2 = pg.PlotWidget(title="y")
         self.pw3 = pg.PlotWidget(title="X")
         self.pw4 = pg.PlotWidget(title="Y")
-        self.pw5 = pg.PlotWidget(title="arg(X)")
-        self.pw6 = pg.PlotWidget(title="arg(Y)")
+        #self.pw5 = pg.PlotWidget(title="arg(X)")
+        #self.pw6 = pg.PlotWidget(title="arg(Y)")
         self.pw7 = pg.PlotWidget(title="phase_x")
 
         layout.addWidget(self.pw1, 0,0)
         layout.addWidget(self.pw2, 0,1)
         layout.addWidget(self.pw3, 0,2)
         layout.addWidget(self.pw4, 1,0)
-        layout.addWidget(self.pw5, 1,1)
-        layout.addWidget(self.pw6, 1,2)
-        layout.addWidget(self.pw7, 2,0)
+        #layout.addWidget(self.pw5, 1,1)
+        #layout.addWidget(self.pw6, 1,2)
+        layout.addWidget(self.pw7, 1,1)
 
         self.setLayout(layout)
 
@@ -41,8 +43,8 @@ class PlotWindow(QWidget):
         self.curve2 = self.pw2.plot(pen="w")
         self.curve3 = self.pw3.plot(pen="w")
         self.curve4 = self.pw4.plot(pen="w")
-        self.curve5 = self.pw5.plot(pen="w")
-        self.curve6 = self.pw6.plot(pen="w")
+#        self.curve5 = self.pw5.plot(pen="w")
+#        self.curve6 = self.pw6.plot(pen="w")
 
         self.curve12 = self.pw1.plot(pen="r")
         self.curve22 = self.pw2.plot(pen="r")
@@ -50,28 +52,49 @@ class PlotWindow(QWidget):
         self.curve7 = self.pw7.plot(symbol = "o", symbolSize=5, symbolBrush="r")
         self.curve8 = self.pw7.plot(symbol ="o", symbolSize=5, symbolBrush="b")
 
-        self.windowSize = 200
-
+        self.windowSize = 1000 
         # create empty data buffers
-        self.bufferSize = 500 
-        self.data1= np.zeros(self.bufferSize)
-        self.data2= np.zeros(self.bufferSize)
-        self.data3= np.zeros(self.bufferSize)
-        self.data4= np.zeros(self.bufferSize)
-        self.data5= np.zeros(self.bufferSize)
-        self.data6= np.zeros(self.bufferSize)
+        #self.bufferSize = 500 
+
+        self.accx_buf = deque()
+        self.accy_buf = deque()
+        self.accz_buf = deque()
+        self.gyrox_buf = deque()
+        self.gyroy_buf = deque()
+        self.gyroz_buf = deque()
+
         self.phase_x= np.zeros(self.windowSize)
         self.phase_y= np.zeros(self.windowSize)
         self.received_data = np.empty((6,0)) 
 
+        self.plot_bufx = np.zeros(self.windowSize)
+        self.plot_bufy = np.zeros(self.windowSize)
+
         self.loop = loop
         # for recorded data
         self.recorded_data = np.empty((6,0))
+        self.readCount=0
         self.count=0
+        self.recording_timer = QtCore.QTimer()
+        self.recording_timer.timeout.connect(self.read_recording)
+        self.recording_timer.start(50)
 
         # worker
         self.ble_worker = None
         self.timer = None
+
+        # filter coefficients
+        order = 3
+        # . One gotcha is that Wn is a fraction of the Nyquist frequency. So if the sampling rate is 1000Hz and you want a cutoff of 250Hz, you should use Wn=0.5
+        Wn = 0.5  # 100 Hz -> 10 Hz cutoff
+        self.b, self.a = butter(order, Wn, 'low') 
+
+        self.fs = 1000 # sampling frequency
+        self.t = np.arange(self.windowSize,dtype=float)/self.fs
+
+        self.freqs = fftshift(fftfreq(self.windowSize, d = 1/self.fs))
+        th = 1.0
+        self.mask = self.freqs > th
     
     def setup_worker(self, address):
         self.ble_worker = BLEWorker(self.loop)
@@ -81,17 +104,32 @@ class PlotWindow(QWidget):
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update)
-        self.timer.start(50)
+        self.timer.start(10)
 
 
     def read_data(self, new_data):
         self.received_data = np.array(new_data).reshape(6,-1)
-        self.data1 = self.data1.append(self.received_data[0])
-        self.data2 = self.data2.append(self.received_data[1])
-        self.data3 = self.data3.append(self.received_data[2])
-        self.data4 = self.data4.append(self.received_data[3])
-        self.data5 = self.data5.append(self.received_data[4])
-        self.data6 = self.data6.append(self.received_data[5])
+        self.accx_buf  = np.append(self.accx_buf, self.received_data[0])
+        self.accy_buf  = np.append(self.accy_buf, self.received_data[1])
+        self.accz_buf  = np.append(self.accz_buf, self.received_data[2])
+        self.gyrox_buf  = np.append(self.gyrox_buf, self.received_data[3])
+        self.gyroy_buf  = np.append(self.gyroy_buf, self.received_data[4])
+        self.gyroz_buf  = np.append(self.gyroz_buf,self.received_data[5])
+
+    def read_recording(self):
+        chunk_size=10
+        start = self.readCount * chunk_size
+        end = (self.readCount+1) * chunk_size
+
+        self.received_data = self.recorded_data[:,start:end]
+        self.accx_buf.extend(self.received_data[0])
+        self.accy_buf.extend(self.received_data[1])
+        self.accz_buf.extend(self.received_data[2])
+        self.gyrox_buf.extend(self.received_data[3])
+        self.gyroy_buf.extend(self.received_data[4])
+        self.gyroz_buf.extend(self.received_data[5])
+
+        self.readCount +=1
 
 
     async def cleanup(self):
@@ -103,85 +141,74 @@ class PlotWindow(QWidget):
         
 
     def update(self):
-            
-        if self.recorded_data.size>0: # if recording
-            chunk_size=10
-            self.received_data = self.recorded_data[:,self.count*chunk_size:(self.count+1)*chunk_size]
 
-        elif self.received_data.shape[1]: 
-            chunk_size = self.received_data.shape[1]
-
-        else: # no data received yet
-            return
-
-        order = 6
-        # . One gotcha is that Wn is a fraction of the Nyquist frequency. So if the sampling rate is 1000Hz and you want a cutoff of 250Hz, you should use Wn=0.5
-        Wn = 0.5  # 100 Hz -> 10 Hz cutoff
-        b, a = butter(order, Wn, 'low') 
-
-        fs = 100 # sampling frequency
-        t1 = np.arange(self.windowSize,dtype=float)/fs
+        print(f"len deque: {len(self.accx_buf)}")
+        N = self.windowSize
 
         # shift one sample 
-        self.data1 = np.roll(self.data1, -1) 
-        self.data2 = np.roll(self.data2, -1) 
+        j = self.count % N
+        self.plot_bufx[j]   = self.accx_buf.popleft()
+#        self.plot_bufx[j+N] = self.accx_buf[j]
+        self.plot_bufy[j]   = self.accy_buf.popleft()
+#        self.plot_bufy[j+N] = self.accy_buf[j]
 
-        acc_x = self.data1[:self.windowSize]
-        acc_y = self.data2[:self.windowSize]
+        """
+        self.plot_bufx[:-1] = self.plot_bufx[1:]
+        self.plot_bufy[:-1] = self.plot_bufy[1:]
+
+        if self.accx_buf:
+            self.plot_bufx[-1] = self.accx_buf.popleft()
+            self.plot_bufy[-1] = self.accy_buf.popleft()
+        else:
+            return
+        """
+#        acc_x = self.plot_bufx[j+1:j+N+1] # current window
+#        acc_y = self.plot_bufy[j+1:j+N+1]
+        xl = self.plot_bufx
+        yl = self.plot_bufy
 
         # calculate fft, arguments
-        xl = filtfilt(b, a, acc_x)
-        yl = filtfilt(b, a, acc_y)
+        #xl = filtfilt(self.b, self.a, acc_x)
+        #yl = filtfilt(self.b, self.a, acc_y)
 
         f1 = fftshift(fft(xl)/len(xl)) # fft_x
         f2 = fftshift(fft(yl)/len(yl)) # fft_y
 
-        f1[np.abs(f1)<1e-6]=0  # remove tiny noise components
-        f2[np.abs(f2)<1e-6]=0
-    
-        freqs = fftshift(fftfreq(len(xl), d = 1/fs))
-
+#        f1[np.abs(f1)<1e-6]=0  # remove tiny noise components
+#        f2[np.abs(f2)<1e-6]=0
+        """
         # DC masking
-        th = 1.0
-        mask = freqs > th
-        peak_x_idx = np.argmax(np.abs(f1[mask]))
-        peak_y_idx = np.argmax(np.abs(f2[mask]))
-        peak_x = freqs[mask][peak_x_idx]
-        peak_y = freqs[mask][peak_y_idx]
+        peak_x_idx = np.argmax(np.abs(f1[self.mask]))
+        peak_y_idx = np.argmax(np.abs(f2[self.mask]))
+        peak_x = self.freqs[self.mask][peak_x_idx]
+        peak_y = self.freqs[self.mask][peak_y_idx]
 
         argx = np.angle(f1)
         argy = np.angle(f2)
 
-        peak_phase_x = np.angle(f1[mask][peak_x_idx])
-        peak_phase_y = np.angle(f2[mask][peak_y_idx])
+        peak_phase_x = np.angle(f1[self.mask][peak_x_idx]) # extracts argument at wanted frequencies
+        peak_phase_y = np.angle(f2[self.mask][peak_y_idx])
 
         # for phase plotting
-        self.phase_x = np.roll(self.phase_x, -1) 
-        self.phase_y = np.roll(self.phase_y, -1)
-
-        phase_values = np.full((2, chunk_size), np.nan)
-        phase_values[0,-1] = peak_phase_x
-        phase_values[1,-1] = peak_phase_y
-
-        self.data3[-chunk_size:] = phase_values[0,:]
-        self.data4[-chunk_size:] = phase_values[1,:]
-
+        self.phase_x[:-1] = self.phase_x[1:]
+        self.phase_y[:-1] = self.phase_y[1:]
+        self.phase_x[-1] = peak_phase_x
+        self.phase_y[-1] = peak_phase_y
+        """
+        """
         # update
-        self.curve1.setData(t1,self.data1) # ax
-        self.curve2.setData(t1,self.data2) # ay
-        self.curve3.setData(freqs,np.abs(f1)) 
-        self.curve4.setData(freqs,np.abs(f2)) 
-        self.curve5.setData(freqs,argx) 
-        self.curve6.setData(freqs,argy) 
+        self.curve1.setData(self.t,xl) # ax
+        self.curve2.setData(self.t,yl) # ay
+        self.curve3.setData(self.freqs,np.abs(f1)) 
+        self.curve4.setData(self.freqs,np.abs(f2)) 
+        #self.curve5.setData(freqs,argx)
+        #self.curve6.setData(freqs,argy)
 
-        self.curve7.setData(self.data3)
-        self.curve8.setData(self.data4)
+        self.curve7.setData(self.phase_x)
+        self.curve8.setData(self.phase_y)
 
         # filtered curves
-        self.curve12.setData(t1,xl)
-        self.curve22.setData(t1,yl) 
-
-        self.received_data = np.empty((6, 0))
-        self.count +=1
-
+        #self.curve12.setData(t1,xl)
+        #self.curve22.setData(t1,yl) 
+        """
 
