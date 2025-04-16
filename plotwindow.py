@@ -52,7 +52,7 @@ class PlotWindow(QWidget):
         self.curve7 = self.pw7.plot(symbol = "o", symbolSize=5, symbolBrush="r")
         self.curve8 = self.pw7.plot(symbol ="o", symbolSize=5, symbolBrush="b")
 
-        self.windowSize = 1000 
+        self.windowSize = 100
         # create empty data buffers
         #self.bufferSize = 500 
 
@@ -67,8 +67,8 @@ class PlotWindow(QWidget):
         self.phase_y= np.zeros(self.windowSize)
         self.received_data = np.empty((6,0)) 
 
-        self.plot_bufx = np.zeros(self.windowSize)
-        self.plot_bufy = np.zeros(self.windowSize)
+        self.plot_bufx = np.zeros(2*self.windowSize)
+        self.plot_bufy = np.zeros(2*self.windowSize)
 
         self.loop = loop
         # for recorded data
@@ -104,7 +104,7 @@ class PlotWindow(QWidget):
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update)
-        self.timer.start(10)
+        self.timer.start(1)
 
 
     def read_data(self, new_data):
@@ -147,35 +147,32 @@ class PlotWindow(QWidget):
 
         # shift one sample 
         j = self.count % N
-        self.plot_bufx[j]   = self.accx_buf.popleft()
-#        self.plot_bufx[j+N] = self.accx_buf[j]
-        self.plot_bufy[j]   = self.accy_buf.popleft()
-#        self.plot_bufy[j+N] = self.accy_buf[j]
+        new_x = self.accx_buf.popleft()
+        new_y = self.accy_buf.popleft()
 
-        """
-        self.plot_bufx[:-1] = self.plot_bufx[1:]
-        self.plot_bufy[:-1] = self.plot_bufy[1:]
+        self.plot_bufx[j]   = new_x
+        self.plot_bufx[j+N] = new_x
+        self.plot_bufy[j]   = new_y
+        self.plot_bufy[j+N] = new_y
 
-        if self.accx_buf:
-            self.plot_bufx[-1] = self.accx_buf.popleft()
-            self.plot_bufy[-1] = self.accy_buf.popleft()
-        else:
-            return
-        """
-#        acc_x = self.plot_bufx[j+1:j+N+1] # current window
-#        acc_y = self.plot_bufy[j+1:j+N+1]
-        xl = self.plot_bufx
-        yl = self.plot_bufy
+        acc_x = self.plot_bufx[j+1:j+N+1] # current window
+        acc_y = self.plot_bufy[j+1:j+N+1]
 
         # calculate fft, arguments
         #xl = filtfilt(self.b, self.a, acc_x)
         #yl = filtfilt(self.b, self.a, acc_y)
 
-        f1 = fftshift(fft(xl)/len(xl)) # fft_x
-        f2 = fftshift(fft(yl)/len(yl)) # fft_y
+#        f1 = fftshift(fft(xl)/len(xl)) # fft_x
+#        f2 = fftshift(fft(yl)/len(yl)) # fft_y
 
 #        f1[np.abs(f1)<1e-6]=0  # remove tiny noise components
 #        f2[np.abs(f2)<1e-6]=0
+        fx = np.fft.fft(acc_x)
+        fy = np.fft.fft(acc_y)
+
+        peak_freq_x = np.argmax(np.abs(fx[self.mask]))
+        peak_freq_y = np.argmax(np.abs(fy[self.mask]))
+        
         """
         # DC masking
         peak_x_idx = np.argmax(np.abs(f1[self.mask]))
