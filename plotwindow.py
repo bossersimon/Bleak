@@ -81,8 +81,16 @@ class PlotWindow(QWidget):
         self.count=0
 
         # worker
-        self.ble_worker = None
-        self.update_timer = None
+#        self.ble_worker = None
+#        self.update_timer = None
+
+        self.ble_worker = BLEWorker(self.loop, address)
+        self.ble_worker.data_received.connect(self.read_data)
+        self.ble_worker.start_ble()
+
+        self.update_timer = QtCore.QTimer()
+        self.update_timer.timeout.connect(self.update)
+        self.update_timer.start(50)
 
         # filtering, masking, axis values
         order = 3
@@ -97,6 +105,7 @@ class PlotWindow(QWidget):
         th = 1.0
         self.mask = self.freqs > th
     
+    """
     def setup_worker(self, address):
         self.ble_worker = BLEWorker(self.loop)
         self.ble_worker.set_address(address)
@@ -106,7 +115,7 @@ class PlotWindow(QWidget):
         self.update_timer = QtCore.QTimer()
         self.update_timer.timeout.connect(self.update)
         self.update_timer.start(50)
-
+    """
 
     def read_data(self, new_data):
         self.received_data = np.array(new_data).reshape(6,-1)

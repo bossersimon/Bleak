@@ -10,16 +10,17 @@ import asyncio
 class BLEWorker(QtCore.QObject):
     data_received = QtCore.pyqtSignal(list)
 
-    def __init__(self, loop, parent = None):
+    def __init__(self, loop, address, parent = None):
         super().__init__()
         self.loop = loop
-        self.address = None #ESP MAC
-        self.client = None #BleakClient(self.address)
-
-    def set_address(self, address):
         self.address = address
         self.client = BleakClient(self.address)
 
+    """
+    def set_address(self, address):
+        self.address = address
+        self.client = BleakClient(self.address)
+    """
     # Called when new data is received
     async def notification_handler(self, sender, data):
         received = self.convert_to_float(data)
