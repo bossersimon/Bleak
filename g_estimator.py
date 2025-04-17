@@ -6,6 +6,7 @@ import pyqtgraph as pg
 from scipy.fft import fft, ifft, fftshift, fftfreq
 from scipy.signal import butter,lfilter,filtfilt
 import math
+from pyqtgraph.Qt import QtCore
 
 import asyncio
 #import sys
@@ -96,11 +97,11 @@ if __name__ == "__main__":
     setup_graceful_shutdown(loop,plot)
 
     #generate_signals(plot)
-    read_recording(plot)
+    #read_recording(plot)
     plot.show()
-   # QtCore.QTimer.singleShot(0,plot.ble_worker.start_ble)
+    QtCore.QTimer.singleShot(0,plot.ble_worker.start_ble)
 
-#    with loop:
-#        loop.run_forever()
-    app.exec()
+    with loop:
+        loop.run_forever()
+  #  app.exec()
 

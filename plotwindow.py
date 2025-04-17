@@ -72,12 +72,12 @@ class PlotWindow(QWidget):
         self.recorded_data = np.empty((6,0))
         self.recording_timer = QtCore.QTimer()
         self.recording_timer.timeout.connect(self.read_recording)
-        self.recording_timer.start(50)
+        #self.recording_timer.start(50)
         self.readCount=0
 
         self.timer = QtCore.QTimer() # Timer to shift samples
         self.timer.timeout.connect(self.shift_window)
-        self.timer.start(1) # 1kHz
+        self.timer.start(10) # 100Hz
         self.count=0
 
         # worker
@@ -90,7 +90,7 @@ class PlotWindow(QWidget):
         Wn = 0.5  # 100 Hz -> 10 Hz cutoff
         self.b, self.a = butter(order, Wn, 'low') 
 
-        self.fs = 1000 # sampling frequency
+        self.fs = 100 # sampling frequency
         self.t = np.arange(self.windowSize,dtype=float)/self.fs
 
         self.freqs = fftshift(fftfreq(self.windowSize, d = 1/self.fs))
@@ -135,7 +135,7 @@ class PlotWindow(QWidget):
         self.readCount +=1
 
     def shift_window(self):
-        print(f"len deque: {len(self.accx_buf)}")
+#        print(f"len deque: {len(self.accx_buf)}")
 
         if not self.accx_buf:
             return
@@ -191,10 +191,9 @@ class PlotWindow(QWidget):
 
     def update(self):
 
-        N = self.windowSize
         # shift one sample 
+        N = self.windowSize
         j = self.count % N
-
         acc_x = self.plot_bufx[j+1:j+N+1] # current window
         acc_y = self.plot_bufy[j+1:j+N+1]
         phase_x = self.phase_bufx[j+1:j+N+1]
@@ -203,6 +202,7 @@ class PlotWindow(QWidget):
         fx = fftshift(np.fft.fft(acc_x))
         fy = fftshift(np.fft.fft(acc_y))
 
+        """
         # update
         self.curve1.setData(self.t,acc_x) # ax
         self.curve2.setData(self.t,acc_y) # ay
@@ -217,4 +217,4 @@ class PlotWindow(QWidget):
         # filtered curves
         #self.curve12.setData(t1,xl)
         #self.curve22.setData(t1,yl) 
-
+        """
