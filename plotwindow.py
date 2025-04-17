@@ -101,7 +101,7 @@ class PlotWindow(QWidget):
         self.ble_worker = BLEWorker(self.loop)
         self.ble_worker.set_address(address)
         self.ble_worker.data_received.connect(self.read_data)
-        self.ble_worker.start_ble()
+#        self.ble_worker.start_ble()
 
         self.update_timer = QtCore.QTimer()
         self.update_timer.timeout.connect(self.update)
