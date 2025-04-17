@@ -10,6 +10,7 @@ import asyncio
 from collections import deque
 
 from bleworker import BLEWorker
+address = "DC:1E:D5:1B:E9:FE" # ESP MAC address
 
 
 class PlotWindow(QWidget):
@@ -84,7 +85,7 @@ class PlotWindow(QWidget):
 #        self.ble_worker = None
 #        self.update_timer = None
 
-        self.ble_worker = BLEWorker(self.loop, address)
+        self.ble_worker = BLEWorker(loop, address)
         self.ble_worker.data_received.connect(self.read_data)
         self.ble_worker.start_ble()
 

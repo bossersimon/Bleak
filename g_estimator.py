@@ -93,7 +93,7 @@ if __name__ == "__main__":
     asyncio.set_event_loop(loop)
 
     plot = PlotWindow(loop)
-    plot.setup_worker(address)
+#    plot.setup_worker(address)
     setup_graceful_shutdown(loop,plot)
 
     #generate_signals(plot)
