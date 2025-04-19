@@ -16,8 +16,6 @@ import signal
 from plotwindow import PlotWindow
 
 address = "DC:1E:D5:1B:E9:FE" # ESP MAC address
-CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c" # Data characteristic
-PARAMS_UUID = "97b28d55-f227-4568-885a-4db649a8e9fd" # Parameter characteristic
 
 # Scale parameters
 acc_divider = 16384

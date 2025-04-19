@@ -19,7 +19,6 @@ class PlotWindow(QWidget):
 
         super().__init__()
 
-        self.loop = loop
         layout = QGridLayout()
 
         self.pw1 = pg.PlotWidget(title="x")
@@ -71,8 +70,8 @@ class PlotWindow(QWidget):
 
         # for recorded data
         self.recorded_data = np.empty((6,0))
-        self.recording_timer = QtCore.QTimer()
-        self.recording_timer.timeout.connect(self.read_recording)
+        #self.recording_timer = QtCore.QTimer()
+        #self.recording_timer.timeout.connect(self.read_recording)
         #self.recording_timer.start(50)
         self.readCount=0
 
@@ -85,6 +84,7 @@ class PlotWindow(QWidget):
 #        self.ble_worker = None
 #        self.update_timer = None
 
+        self.loop = loop
         self.ble_worker = BLEWorker(loop, address)
         self.ble_worker.data_received.connect(self.read_data)
         self.ble_worker.start_ble()

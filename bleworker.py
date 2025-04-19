@@ -5,6 +5,8 @@ from pyqtgraph.Qt import QtCore
 from bleak import BleakClient
 import asyncio
 
+PARAMS_UUID = "97b28d55-f227-4568-885a-4db649a8e9fd" # Parameter characteristic
+CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c" # Data characteristic
 
 # Manages BLE communication and reads data asynchronously
 class BLEWorker(QtCore.QObject):
