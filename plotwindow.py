@@ -76,9 +76,9 @@ class PlotWindow(QWidget):
         #self.recording_timer.start(50)
         self.readCount=0
 
-        self.timer = QtCore.QTimer() # Timer to shift samples
-        self.timer.timeout.connect(self.shift_window)
-        self.timer.start(10) # 100Hz
+#        self.timer = QtCore.QTimer() # Timer to shift samples
+#        self.timer.timeout.connect(self.shift_window)
+#        self.timer.start(50) # 100Hz
         self.count=0
 
         # worker

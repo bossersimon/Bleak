@@ -23,7 +23,6 @@ class BLEWorker(QtCore.QObject):
     """
     # Called when new data is received
     async def notification_handler(self, sender, data):
-        print("Notification received")
         received = self.convert_to_float(data)
         #print(f"shape received: {np.shape(received)}\n")
         self.data_received.emit(received.flatten().tolist()) # emits to PlotWindow.read_data()
@@ -41,18 +40,17 @@ class BLEWorker(QtCore.QObject):
             #await client.write_gatt_char(PARAMS_UUID, scales)
     
             # for bias and scale correction
+            print("await params")
             param_data = await client.read_gatt_char(PARAMS_UUID)
+            print("params received")
             global bias_values
             bias_values = [int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2)]
 
             # print("Adjustment values:", bias_values)
-
             await client.start_notify(CHARACTERISTIC_UUID, self.notification_handler)
-            
             # print("start notify complete")
 
             while True:
-                print("BLE loop alive")
                 await asyncio.sleep(0.1)
 
     # create tasks
