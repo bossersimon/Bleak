@@ -23,6 +23,7 @@ class BLEWorker(QtCore.QObject):
     """
     # Called when new data is received
     async def notification_handler(self, sender, data):
+        print("Notification received")
         received = self.convert_to_float(data)
         #print(f"shape received: {np.shape(received)}\n")
         self.data_received.emit(received.flatten().tolist()) # emits to PlotWindow.read_data()
@@ -51,6 +52,7 @@ class BLEWorker(QtCore.QObject):
             # print("start notify complete")
 
             while True:
+                print("BLE loop alive")
                 await asyncio.sleep(0.1)
 
     # create tasks
