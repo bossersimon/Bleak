@@ -4,9 +4,17 @@
 from pyqtgraph.Qt import QtCore
 from bleak import BleakClient
 import asyncio
+import numpy as np
 
 PARAMS_UUID = "97b28d55-f227-4568-885a-4db649a8e9fd" # Parameter characteristic
 CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c" # Data characteristic
+
+# Scale parameters
+acc_divider = 16384
+gyro_divider = 131
+dividers = [acc_divider, acc_divider, acc_divider, gyro_divider, gyro_divider, gyro_divider]
+bias_values = [0,0,0]
+
 
 # Manages BLE communication and reads data asynchronously
 class BLEWorker(QtCore.QObject):
@@ -18,15 +26,9 @@ class BLEWorker(QtCore.QObject):
         self.address = address
         self.client = BleakClient(self.address)
 
-    """
-    def set_address(self, address):
-        self.address = address
-        self.client = BleakClient(self.address)
-    """
     # Called when new data is received
     async def notification_handler(self, sender, data):
         received = self.convert_to_float(data)
-        #print(f"shape received: {np.shape(received)}\n")
         self.data_received.emit(received.flatten().tolist()) # emits to PlotWindow.read_data()
 
 
@@ -42,9 +44,7 @@ class BLEWorker(QtCore.QObject):
             #await client.write_gatt_char(PARAMS_UUID, scales)
     
             # for bias and scale correction
-            print("await params")
             param_data = await client.read_gatt_char(PARAMS_UUID)
-            print("params received")
             global bias_values
             bias_values = [int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2)]
 

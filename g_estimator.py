@@ -17,12 +17,6 @@ from plotwindow import PlotWindow
 
 address = "DC:1E:D5:1B:E9:FE" # ESP MAC address
 
-# Scale parameters
-acc_divider = 16384
-gyro_divider = 131
-dividers = [acc_divider, acc_divider, acc_divider, gyro_divider, gyro_divider, gyro_divider]
-bias_values = [0,0,0]
-
 
 def generate_signals(plot):
     fs = 100 # sampling frequency

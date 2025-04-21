@@ -75,9 +75,9 @@ class PlotWindow(QWidget):
         #self.recording_timer.start(50)
         self.readCount=0
 
-#        self.timer = QtCore.QTimer() # Timer to shift samples
-#        self.timer.timeout.connect(self.shift_window)
-#        self.timer.start(50) # 100Hz
+        self.timer = QtCore.QTimer() # Timer to shift samples
+        self.timer.timeout.connect(self.shift_window)
+        self.timer.start(5) # 100Hz
         self.count=0
 
         # worker
@@ -106,18 +106,6 @@ class PlotWindow(QWidget):
         th = 1.0
         self.mask = self.freqs > th
     
-    """
-    def setup_worker(self, address):
-        self.ble_worker = BLEWorker(self.loop)
-        self.ble_worker.set_address(address)
-        self.ble_worker.data_received.connect(self.read_data)
-#        self.ble_worker.start_ble()
-
-        self.update_timer = QtCore.QTimer()
-        self.update_timer.timeout.connect(self.update)
-        self.update_timer.start(50)
-    """
-
     def read_data(self, new_data):
         self.received_data = np.array(new_data).reshape(6,-1)
 
@@ -145,7 +133,7 @@ class PlotWindow(QWidget):
         self.readCount +=1
 
     def shift_window(self):
-#        print(f"len deque: {len(self.accx_buf)}")
+        print(f"len deque: {len(self.accx_buf)}")
 
         if not self.accx_buf:
             return
@@ -212,7 +200,6 @@ class PlotWindow(QWidget):
         fx = fftshift(np.fft.fft(acc_x))
         fy = fftshift(np.fft.fft(acc_y))
 
-        """
         # update
         self.curve1.setData(self.t,acc_x) # ax
         self.curve2.setData(self.t,acc_y) # ay
@@ -227,4 +214,3 @@ class PlotWindow(QWidget):
         # filtered curves
         #self.curve12.setData(t1,xl)
         #self.curve22.setData(t1,yl) 
-        """
