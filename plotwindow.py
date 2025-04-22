@@ -23,19 +23,19 @@ class PlotWindow(QWidget):
 
         self.pw1 = pg.PlotWidget(title="x")
         self.pw2 = pg.PlotWidget(title="y")
-        self.pw3 = pg.PlotWidget(title="X")
-        self.pw4 = pg.PlotWidget(title="Y")
-        #self.pw5 = pg.PlotWidget(title="arg(X)")
-        #self.pw6 = pg.PlotWidget(title="arg(Y)")
-        self.pw7 = pg.PlotWidget(title="phase_x")
+        self.pw3 = pg.PlotWidget(title="gz")
+        self.pw4 = pg.PlotWidget(title="fft(x)")
+        self.pw5 = pg.PlotWidget(title="fft(y)")
+        self.pw6 = pg.PlotWidget(title="arg x,y")
+#        self.pw7 = pg.PlotWidget(title="arg(y)")
 
         layout.addWidget(self.pw1, 0,0)
         layout.addWidget(self.pw2, 0,1)
         layout.addWidget(self.pw3, 0,2)
         layout.addWidget(self.pw4, 1,0)
-        #layout.addWidget(self.pw5, 1,1)
-        #layout.addWidget(self.pw6, 1,2)
-        layout.addWidget(self.pw7, 1,1)
+        layout.addWidget(self.pw5, 1,1)
+        layout.addWidget(self.pw6, 1,2)
+        #layout.addWidget(self.pw7, 1,1)
 
         self.setLayout(layout)
 
@@ -43,36 +43,37 @@ class PlotWindow(QWidget):
         self.curve2 = self.pw2.plot(pen="w")
         self.curve3 = self.pw3.plot(pen="w")
         self.curve4 = self.pw4.plot(pen="w")
-#        self.curve5 = self.pw5.plot(pen="w")
-#        self.curve6 = self.pw6.plot(pen="w")
+        self.curve5 = self.pw5.plot(pen="w")
+        self.curve6 = self.pw6.plot(pen="w")
 
-        self.curve12 = self.pw1.plot(pen="r")
-        self.curve22 = self.pw2.plot(pen="r")
+#        self.curve12 = self.pw1.plot(pen="r")
+#        self.curve22 = self.pw2.plot(pen="r")
 
-        self.curve7 = self.pw7.plot(symbol = "o", symbolSize=5, symbolBrush="r")
-        self.curve8 = self.pw7.plot(symbol ="o", symbolSize=5, symbolBrush="b")
+        self.curve7 = self.pw6.plot(symbol = "o", symbolSize=5, symbolBrush="r")
+        self.curve8 = self.pw6.plot(symbol ="o", symbolSize=5, symbolBrush="b")
 
         # data buffers
         self.accx_buf = deque()
         self.accy_buf = deque()
         self.accz_buf = deque()
-        self.gyrox_buf = deque()
-        self.gyroy_buf = deque()
+#        self.gyrox_buf = deque()
+#        self.gyroy_buf = deque()
         self.gyroz_buf = deque()
 
         self.received_data = np.empty((6,0)) 
 
         self.windowSize = 100
-        self.plot_bufx = np.zeros(2*self.windowSize)
-        self.plot_bufy = np.zeros(2*self.windowSize)
-        self.phase_bufx= np.zeros(2*self.windowSize)
-        self.phase_bufy= np.zeros(2*self.windowSize)
+        self.win_accx = np.zeros(2*self.windowSize)
+        self.win_accy = np.zeros(2*self.windowSize)
+        self.win_phasex= np.zeros(2*self.windowSize)
+        self.win_phasey= np.zeros(2*self.windowSize)
+        self.win_gyroz = np.zeros(2*self.windowSize)
 
         # for recorded data
         self.recorded_data = np.empty((6,0))
-        #self.recording_timer = QtCore.QTimer()
-        #self.recording_timer.timeout.connect(self.read_recording)
-        #self.recording_timer.start(50)
+        self.recording_timer = QtCore.QTimer()
+        self.recording_timer.timeout.connect(self.read_recording)
+        self.recording_timer.start(50)
         self.readCount=0
 
         self.timer = QtCore.QTimer() # Timer to shift samples
@@ -86,7 +87,7 @@ class PlotWindow(QWidget):
 
         self.loop = loop
         self.ble_worker = BLEWorker(loop, address)
-        self.ble_worker.data_received.connect(self.read_data)
+        #self.ble_worker.data_received.connect(self.read_data)
         self.ble_worker.start_ble()
 
         self.update_timer = QtCore.QTimer()
@@ -112,8 +113,8 @@ class PlotWindow(QWidget):
         self.accx_buf.extend(self.received_data[0])
         self.accy_buf.extend(self.received_data[1])
         self.accz_buf.extend(self.received_data[2])
-        self.gyrox_buf.extend(self.received_data[3])
-        self.gyroy_buf.extend(self.received_data[4])
+#        self.gyrox_buf.extend(self.received_data[3])
+#        self.gyroy_buf.extend(self.received_data[4])
         self.gyroz_buf.extend(self.received_data[5])
 
 
@@ -126,14 +127,14 @@ class PlotWindow(QWidget):
         self.accx_buf.extend(self.received_data[0])
         self.accy_buf.extend(self.received_data[1])
         self.accz_buf.extend(self.received_data[2])
-        self.gyrox_buf.extend(self.received_data[3])
-        self.gyroy_buf.extend(self.received_data[4])
+#        self.gyrox_buf.extend(self.received_data[3])
+#        self.gyroy_buf.extend(self.received_data[4])
         self.gyroz_buf.extend(self.received_data[5])
 
         self.readCount +=1
 
     def shift_window(self):
-        print(f"len deque: {len(self.accx_buf)}")
+        #print(f"len deque: {len(self.accx_buf)}")
 
         if not self.accx_buf:
             return
@@ -144,14 +145,18 @@ class PlotWindow(QWidget):
         j = self.count % N
         new_x = self.accx_buf.popleft()
         new_y = self.accy_buf.popleft()
+        new_gz = self.gyroz_buf.popleft()
 
-        self.plot_bufx[j]   = new_x
-        self.plot_bufx[j+N] = new_x
-        self.plot_bufy[j]   = new_y
-        self.plot_bufy[j+N] = new_y
+        self.win_accx[j]   = new_x
+        self.win_accx[j+N] = new_x
+        self.win_accy[j]   = new_y
+        self.win_accy[j+N] = new_y
 
-        acc_x = self.plot_bufx[j+1:j+N+1] # current window
-        acc_y = self.plot_bufy[j+1:j+N+1]
+        self.win_gyroz[j]   = new_gz
+        self.win_gyroz[j+N] = new_gz
+
+        acc_x = self.win_accx[j+1:j+N+1] # current window
+        acc_y = self.win_accy[j+1:j+N+1]
 
         # calculate fft, arguments
         filtered_x = filtfilt(self.b, self.a, acc_x)
@@ -171,10 +176,10 @@ class PlotWindow(QWidget):
         peak_phase_x = np.angle(fx[peak_idx_x]) 
         peak_phase_y = np.angle(fy[peak_idx_y])
 
-        self.phase_bufx[j]   = peak_phase_x
-        self.phase_bufx[j+N] = peak_phase_x
-        self.phase_bufy[j]   = peak_phase_y
-        self.phase_bufy[j+N] = peak_phase_y
+        self.win_phasex[j]   = peak_phase_x
+        self.win_phasex[j+N] = peak_phase_x
+        self.win_phasey[j]   = peak_phase_y
+        self.win_phasey[j+N] = peak_phase_y
 
         self.count+=1
 
@@ -192,10 +197,11 @@ class PlotWindow(QWidget):
         # shift one sample 
         N = self.windowSize
         j = self.count % N
-        acc_x = self.plot_bufx[j+1:j+N+1] # current window
-        acc_y = self.plot_bufy[j+1:j+N+1]
-        phase_x = self.phase_bufx[j+1:j+N+1]
-        phase_y = self.phase_bufy[j+1:j+N+1]
+        acc_x =   self.win_accx[j+1:j+N+1] # current window
+        acc_y =   self.win_accy[j+1:j+N+1]
+        phase_x = self.win_phasex[j+1:j+N+1]
+        phase_y = self.win_phasey[j+1:j+N+1]
+        gyro_z =  self.win_gyroz[j+1:j+N+1]
         
         fx = fftshift(np.fft.fft(acc_x))
         fy = fftshift(np.fft.fft(acc_y))
@@ -203,10 +209,10 @@ class PlotWindow(QWidget):
         # update
         self.curve1.setData(self.t,acc_x) # ax
         self.curve2.setData(self.t,acc_y) # ay
-        self.curve3.setData(self.freqs,np.abs(fx)) 
-        self.curve4.setData(self.freqs,np.abs(fy)) 
-        #self.curve5.setData(freqs,argx)
-        #self.curve6.setData(freqs,argy)
+        self.curve3.setData(self.t,gyro_z)
+        self.curve4.setData(self.freqs,np.abs(fx)) 
+        self.curve5.setData(self.freqs,np.abs(fy)) 
+#        self.curve6.setData(freqs,argy)
 
         self.curve7.setData(phase_x)
         self.curve8.setData(phase_y)

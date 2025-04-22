@@ -89,7 +89,7 @@ if __name__ == "__main__":
     setup_graceful_shutdown(loop,plot)
 
     #generate_signals(plot)
-    #read_recording(plot)
+    read_recording(plot)
     plot.show()
     QtCore.QTimer.singleShot(0,plot.ble_worker.start_ble)
 
