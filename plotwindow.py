@@ -62,7 +62,7 @@ class PlotWindow(QWidget):
 
         self.received_data = np.empty((6,0)) 
 
-        self.windowSize = 500
+        self.windowSize = 2000
         self.win_accx = np.zeros(2*self.windowSize)
         self.win_accy = np.zeros(2*self.windowSize)
         self.win_phasex= np.zeros(2*self.windowSize)
@@ -73,12 +73,12 @@ class PlotWindow(QWidget):
         self.recorded_data = np.empty((6,0))
         self.recording_timer = QtCore.QTimer()
         self.recording_timer.timeout.connect(self.read_recording)
-        self.recording_timer.start(50)
+        #self.recording_timer.start(50)
         self.readCount=0
 
         self.timer = QtCore.QTimer() # Timer to shift samples
         self.timer.timeout.connect(self.shift_window)
-        self.timer.start(5) # 100Hz
+        self.timer.start(2) # 100Hz
         self.count=0
 
         # worker
@@ -87,7 +87,7 @@ class PlotWindow(QWidget):
 
         self.loop = loop
         self.ble_worker = BLEWorker(loop, address)
-        #self.ble_worker.data_received.connect(self.read_data)
+        self.ble_worker.data_received.connect(self.read_data)
         self.ble_worker.start_ble()
 
         self.update_timer = QtCore.QTimer()
@@ -97,14 +97,14 @@ class PlotWindow(QWidget):
         # filtering, masking, axis values
         order = 3
         # . One gotcha is that Wn is a fraction of the Nyquist frequency. So if the sampling rate is 1000Hz and you want a cutoff of 250Hz, you should use Wn=0.5
-        Wn = 0.5  # 100 Hz -> 10 Hz cutoff
+        Wn = 0.12  # fs = 100 Hz -> 6 Hz cutoff
         self.b, self.a = butter(order, Wn, 'low') 
 
         self.fs = 100 # sampling frequency
         self.t = np.arange(self.windowSize,dtype=float)/self.fs
 
         self.freqs = fftshift(fftfreq(self.windowSize, d = 1/self.fs))
-        th = 1.0
+        th = 1.0 # mask anything above 1 Hz 
         self.mask = self.freqs > th
     
     def read_data(self, new_data):
@@ -134,7 +134,6 @@ class PlotWindow(QWidget):
         self.readCount +=1
 
     def shift_window(self):
-        #print(f"len deque: {len(self.accx_buf)}")
 
         if not self.accx_buf:
             return
@@ -166,12 +165,12 @@ class PlotWindow(QWidget):
         fy = np.fft.fft(filtered_y)
 
         # DC masking
-        masked_indices = np.where(self.mask)[0]
-        peak_idx_x = np.argmax(np.abs(fx[self.mask]))
-        peak_idx_y = np.argmax(np.abs(fy[self.mask]))
+        peak_idx_x = np.argmax(np.abs(fx[self.mask])) # index of wanted frequency relative
+        peak_idx_y = np.argmax(np.abs(fy[self.mask])) # to masked array
 
-        peak_idx_x = masked_indices[peak_idx_x]
-        peak_idx_y = masked_indices[peak_idx_y]
+        masked_indices = np.where(self.mask)[0] # [0] gives indices of True condition
+        peak_idx_x = masked_indices[peak_idx_x] # index in full array corresponding 
+        peak_idx_y = masked_indices[peak_idx_y] # to wanted frequency
 
         peak_phase_x = np.angle(fx[peak_idx_x]) 
         peak_phase_y = np.angle(fy[peak_idx_y])
@@ -193,6 +192,7 @@ class PlotWindow(QWidget):
         
 
     def update(self):
+        print(f"len deque: {len(self.accx_buf)}")
 
         # shift one sample 
         N = self.windowSize
@@ -205,6 +205,13 @@ class PlotWindow(QWidget):
         
         fx = fftshift(np.fft.fft(acc_x))
         fy = fftshift(np.fft.fft(acc_y))
+    
+        masked_indices = np.where(self.mask)[0]
+        peak_idx_x = np.argmax(np.abs(fx[self.mask]))
+        peak_idx_x = masked_indices[peak_idx_x]
+        peak_freq = self.freqs[peak_idx_x]
+
+        #print(f"frequency: {peak_freq}, DPS: {peak_freq*360}")
 
         # update
         self.curve1.setData(self.t,acc_x) # ax
