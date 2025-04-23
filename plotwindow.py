@@ -62,7 +62,7 @@ class PlotWindow(QWidget):
 
         self.received_data = np.empty((6,0)) 
 
-        self.windowSize = 100
+        self.windowSize = 500
         self.win_accx = np.zeros(2*self.windowSize)
         self.win_accy = np.zeros(2*self.windowSize)
         self.win_phasex= np.zeros(2*self.windowSize)
@@ -196,7 +196,7 @@ class PlotWindow(QWidget):
 
         # shift one sample 
         N = self.windowSize
-        j = self.count % N
+        j = (self.count-1) % N
         acc_x =   self.win_accx[j+1:j+N+1] # current window
         acc_y =   self.win_accy[j+1:j+N+1]
         phase_x = self.win_phasex[j+1:j+N+1]
