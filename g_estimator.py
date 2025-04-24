@@ -62,21 +62,22 @@ def generate_signals(plot):
     plot.latest_data = rows
 
 def read_recording(plot):
-    loaded_data = np.loadtxt("recording2.txt", delimiter = ",")
+    loaded_data = np.loadtxt("recording4.txt", delimiter = ",")
     loaded_data = loaded_data.T
     plot.recorded_data = loaded_data
 
 def setup_graceful_shutdown(loop, plot):
     def signal_handler(*args):
         print("Caught SIGINT, shutting down...")
-        asyncio.ensure_future(shutdown())
+        loop.create_task(shutdown())
 
     async def shutdown():
         await plot.cleanup()
+        await asyncio.sleep(0.2)
         loop.stop()
 
     signal.signal(signal.SIGINT,signal_handler)
-    app.aboutToQuit.connect(lambda: asyncio.ensure_future(shutdown()))
+    app.aboutToQuit.connect(lambda: loop.create_task(shutdown()))
         
 
 if __name__ == "__main__":
@@ -85,11 +86,10 @@ if __name__ == "__main__":
     asyncio.set_event_loop(loop)
 
     plot = PlotWindow(loop)
-#    plot.setup_worker(address)
     setup_graceful_shutdown(loop,plot)
 
     #generate_signals(plot)
-    read_recording(plot)
+    #read_recording(plot)
     plot.show()
     QtCore.QTimer.singleShot(0,plot.ble_worker.start_ble)
 

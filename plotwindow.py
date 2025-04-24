@@ -97,7 +97,7 @@ class PlotWindow(QWidget):
         # filtering, masking, axis values
         order = 3
         # . One gotcha is that Wn is a fraction of the Nyquist frequency. So if the sampling rate is 1000Hz and you want a cutoff of 250Hz, you should use Wn=0.5
-        Wn = 0.12  # fs = 100 Hz -> 6 Hz cutoff
+        Wn = 0.13  # 100 Hz -> 10 Hz cutoff
         self.b, self.a = butter(order, Wn, 'low') 
 
         self.fs = 100 # sampling frequency
@@ -185,6 +185,9 @@ class PlotWindow(QWidget):
 
     async def cleanup(self):
         print("Disconnecting...")
+        
+        print(f" if client: {self.ble_worker.client}")
+        print(f" is connected: {self.ble_worker.client.is_connected}")
 
         if self.ble_worker.client and self.ble_worker.client.is_connected:
             await self.ble_worker.client.disconnect()
@@ -211,7 +214,7 @@ class PlotWindow(QWidget):
         peak_idx_x = masked_indices[peak_idx_x]
         peak_freq = self.freqs[peak_idx_x]
 
-        #print(f"frequency: {peak_freq}, DPS: {peak_freq*360}")
+        print(f"frequency: {peak_freq}, DPS: {peak_freq*360}")
 
         # update
         self.curve1.setData(self.t,acc_x) # ax
