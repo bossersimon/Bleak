@@ -18,7 +18,7 @@ PARAMS_UUID = "97b28d55-f227-4568-885a-4db649a8e9fd" # Parameter characteristic
 
 # Scale parameters
 acc_divider = 16384
-gyro_divider = 131
+gyro_divider = 16.4 # 131
 dividers = [acc_divider, acc_divider, acc_divider, gyro_divider, gyro_divider, gyro_divider]
 bias_values = [0,0,0]
 
