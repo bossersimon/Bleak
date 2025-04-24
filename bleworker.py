@@ -11,7 +11,7 @@ CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c" # Data characterist
 
 # Scale parameters
 acc_divider = 16384
-gyro_divider = 131
+gyro_divider = 16.4 #131 
 dividers = [acc_divider, acc_divider, acc_divider, gyro_divider, gyro_divider, gyro_divider]
 bias_values = [0,0,0]
 
