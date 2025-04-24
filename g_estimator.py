@@ -9,7 +9,6 @@ import math
 from pyqtgraph.Qt import QtCore
 
 import asyncio
-#import sys
 import qasync
 import signal
 
