@@ -15,7 +15,7 @@ address = "DC:1E:D5:1B:E9:FE" # ESP MAC address
 
 class PlotWindow(QWidget):
 
-    def __init__(self, loop):
+    def __init__(self, loop, file_writer=None):
 
         super().__init__()
 
@@ -106,6 +106,9 @@ class PlotWindow(QWidget):
         self.freqs = fftshift(fftfreq(self.windowSize, d = 1/self.fs))
         th = 1.0 # mask anything above 1 Hz 
         self.mask = self.freqs > th
+
+        self.writer = file_writer
+
     
     def read_data(self, new_data):
         self.received_data = np.array(new_data).reshape(6,-1)
