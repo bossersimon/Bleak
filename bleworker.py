@@ -9,6 +9,20 @@ import numpy as np
 PARAMS_UUID = "97b28d55-f227-4568-885a-4db649a8e9fd" # Parameter characteristic
 CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c" # Data characteristic
 
+GYRO_SCALES = {
+    "250DPS": 0x00,
+    "500DPS": 0x08,
+    "1000DPS": 0x10,
+    "2000DPS": 0x18
+}
+
+ACC_SCALES = {
+    "2G":  0x00,
+    "4G":  0x08,
+    "8G":  0x10,
+    "16G": 0x18
+}
+
 # Scale parameters
 acc_divider = 16384
 gyro_divider = 16.4 #131 
