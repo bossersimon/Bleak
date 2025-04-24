@@ -15,7 +15,7 @@ address = "DC:1E:D5:1B:E9:FE" # ESP MAC address
 
 class PlotWindow(QWidget):
 
-    def __init__(self, loop, file_writer=None):
+    def __init__(self, loop, playback = False, file_writer=None):
 
         super().__init__()
 
@@ -69,26 +69,26 @@ class PlotWindow(QWidget):
         self.win_phasey= np.zeros(2*self.windowSize)
         self.win_gyroz = np.zeros(2*self.windowSize)
 
+        self.loop = loop
+        self.ble_worker = BLEWorker(loop, address)
+
         # for recorded data
-        self.recorded_data = np.empty((6,0))
-        self.recording_timer = QtCore.QTimer()
-        self.recording_timer.timeout.connect(self.read_recording)
-        #self.recording_timer.start(50)
-        self.readCount=0
+        if playback:
+            self.recorded_data = np.empty((6,0))
+            self.recording_timer = QtCore.QTimer()
+            self.recording_timer.timeout.connect(self.read_recording)
+            self.recording_timer.start(50)
+            self.readCount=0
+
+        else: 
+            self.ble_worker.data_received.connect(self.read_data)
+            self.ble_worker.start_ble()
+
 
         self.timer = QtCore.QTimer() # Timer to shift samples
         self.timer.timeout.connect(self.shift_window)
         self.timer.start(2) # 100Hz
         self.count=0
-
-        # worker
-#        self.ble_worker = None
-#        self.update_timer = None
-
-        self.loop = loop
-        self.ble_worker = BLEWorker(loop, address)
-        self.ble_worker.data_received.connect(self.read_data)
-        self.ble_worker.start_ble()
 
         self.update_timer = QtCore.QTimer()
         self.update_timer.timeout.connect(self.update)
@@ -112,7 +112,6 @@ class PlotWindow(QWidget):
     
     def read_data(self, new_data):
         self.received_data = np.array(new_data).reshape(6,-1)
-        
         if self.writer:
             self.writer.writerows(self.latest_data.T)
 
