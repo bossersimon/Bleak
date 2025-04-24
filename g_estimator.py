@@ -16,7 +16,6 @@ from plotwindow import PlotWindow
 
 address = "DC:1E:D5:1B:E9:FE" # ESP MAC address
 
-
 def generate_signals(plot):
     fs = 100 # sampling frequency
     T = 100 # signal length
@@ -84,11 +83,12 @@ if __name__ == "__main__":
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
 
-    plot = PlotWindow(loop)
+    playback = True
+    plot = PlotWindow(loop, playback)
     setup_graceful_shutdown(loop,plot)
 
     #generate_signals(plot)
-    #read_recording(plot)
+    read_recording(plot)
     plot.show()
     QtCore.QTimer.singleShot(0,plot.ble_worker.start_ble)
 
