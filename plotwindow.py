@@ -215,7 +215,7 @@ class PlotWindow(QWidget):
         phase_x = self.win_phasex[j+1:j+N+1]
         phase_y = self.win_phasey[j+1:j+N+1]
         gyro_z =  self.win_gyroz[j+1:j+N+1]
-        phase =   self.win_phase[j+1:j+N+1]
+        phi =   self.win_phase[j+1:j+N+1]
         
         fx = fftshift(np.fft.fft(acc_x))
         fy = fftshift(np.fft.fft(acc_y))
@@ -227,8 +227,8 @@ class PlotWindow(QWidget):
 
         print(f"frequency: {peak_freq}, DPS: {peak_freq*360}")
 
-#        heading_rate = 
-        
+#        heading_rate = gx*np.cos(phi)-gy*np.sin(phi)
+#        roll_rate    = gx*np.sin(phi)+gy*np.cos(phi)
 
         # update
         self.curve1.setData(self.t,acc_x) # ax
@@ -238,8 +238,8 @@ class PlotWindow(QWidget):
         self.curve5.setData(self.freqs,np.abs(fy)) 
 #        self.curve6.setData(freqs,argy)
 
-        self.curve7.setData(phase_x)
-        self.curve8.setData(phase_y)
+        self.curve7.setData(np.cos(phi))
+#        self.curve8.setData(phase_y)
 
         # filtered curves
         #self.curve12.setData(t1,xl)
