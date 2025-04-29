@@ -56,8 +56,8 @@ class PlotWindow(QWidget):
         self.accx_buf = deque()
         self.accy_buf = deque()
         self.accz_buf = deque()
-#        self.gyrox_buf = deque()
-#        self.gyroy_buf = deque()
+        self.gyrox_buf = deque()
+        self.gyroy_buf = deque()
         self.gyroz_buf = deque()
 
         self.received_data = np.empty((6,0)) 
@@ -68,6 +68,7 @@ class PlotWindow(QWidget):
         self.win_phasex= np.zeros(2*self.windowSize)
         self.win_phasey= np.zeros(2*self.windowSize)
         self.win_gyroz = np.zeros(2*self.windowSize)
+        self.win_phase = np.zeros(2*self.windowSize)
 
         self.loop = loop
         self.ble_worker = BLEWorker(loop, address)
@@ -118,8 +119,8 @@ class PlotWindow(QWidget):
         self.accx_buf.extend(self.received_data[0])
         self.accy_buf.extend(self.received_data[1])
         self.accz_buf.extend(self.received_data[2])
-#        self.gyrox_buf.extend(self.received_data[3])
-#        self.gyroy_buf.extend(self.received_data[4])
+        self.gyrox_buf.extend(self.received_data[3])
+        self.gyroy_buf.extend(self.received_data[4])
         self.gyroz_buf.extend(self.received_data[5])
 
 
@@ -132,8 +133,8 @@ class PlotWindow(QWidget):
         self.accx_buf.extend(self.received_data[0])
         self.accy_buf.extend(self.received_data[1])
         self.accz_buf.extend(self.received_data[2])
-#        self.gyrox_buf.extend(self.received_data[3])
-#        self.gyroy_buf.extend(self.received_data[4])
+        self.gyrox_buf.extend(self.received_data[3])
+        self.gyroy_buf.extend(self.received_data[4])
         self.gyroz_buf.extend(self.received_data[5])
 
         self.readCount +=1
@@ -177,6 +178,8 @@ class PlotWindow(QWidget):
         peak_idx_x = masked_indices[peak_idx_x] # index in full array corresponding 
         peak_idx_y = masked_indices[peak_idx_y] # to wanted frequency
 
+        phase = np.arctan2(fy(peak_idx_y), fx(peak_idx_x))
+
         peak_phase_x = np.angle(fx[peak_idx_x]) 
         peak_phase_y = np.angle(fy[peak_idx_y])
 
@@ -184,6 +187,8 @@ class PlotWindow(QWidget):
         self.win_phasex[j+N] = peak_phase_x
         self.win_phasey[j]   = peak_phase_y
         self.win_phasey[j+N] = peak_phase_y
+        self.win_phase[j]    = phase
+        self.win_phase[j+N]  = phase
 
         self.count+=1
 
@@ -210,6 +215,7 @@ class PlotWindow(QWidget):
         phase_x = self.win_phasex[j+1:j+N+1]
         phase_y = self.win_phasey[j+1:j+N+1]
         gyro_z =  self.win_gyroz[j+1:j+N+1]
+        phase =   self.win_phase[j+1:j+N+1]
         
         fx = fftshift(np.fft.fft(acc_x))
         fy = fftshift(np.fft.fft(acc_y))
@@ -220,6 +226,9 @@ class PlotWindow(QWidget):
         peak_freq = self.freqs[peak_idx_x]
 
         print(f"frequency: {peak_freq}, DPS: {peak_freq*360}")
+
+#        heading_rate = 
+        
 
         # update
         self.curve1.setData(self.t,acc_x) # ax
