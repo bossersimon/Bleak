@@ -60,7 +60,7 @@ def generate_signals(plot):
     plot.latest_data = rows
 
 def read_recording(plot):
-    loaded_data = np.loadtxt("recording4.txt", delimiter = ",")
+    loaded_data = np.loadtxt("recordings/screwdriver2.txt", delimiter = ",")
     loaded_data = loaded_data.T
     plot.recorded_data = loaded_data
 
@@ -87,8 +87,8 @@ if __name__ == "__main__":
     plot = PlotWindow(loop, playback)
     setup_graceful_shutdown(loop,plot)
 
-    #generate_signals(plot)
-    read_recording(plot)
+    generate_signals(plot)
+    #read_recording(plot)
     plot.show()
     QtCore.QTimer.singleShot(0,plot.ble_worker.start_ble)
 

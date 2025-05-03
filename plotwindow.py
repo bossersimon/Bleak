@@ -178,15 +178,23 @@ class PlotWindow(QWidget):
         peak_idx_x = masked_indices[peak_idx_x] # index in full array corresponding 
         peak_idx_y = masked_indices[peak_idx_y] # to wanted frequency
 
-        phase = np.arctan2(fy(peak_idx_y), fx(peak_idx_x))
 
-        peak_phase_x = np.angle(fx[peak_idx_x]) 
-        peak_phase_y = np.angle(fy[peak_idx_y])
+        X = fx[peak_idx_x]
+        Y = fy[peak_idx_y]
+        phase  = np.angle(X + 1j*Y)
+        
+        phase_x = np.angle(fx[peak_idx_x]) 
+        phase_y = np.angle(fy[peak_idx_y])
 
-        self.win_phasex[j]   = peak_phase_x
-        self.win_phasex[j+N] = peak_phase_x
-        self.win_phasey[j]   = peak_phase_y
-        self.win_phasey[j+N] = peak_phase_y
+      #  ReX = np.abs(fx[peak_idx_x])*np.cos(phase_x)
+      #  ReY = np.abs(fy[peak_idx_y])*np.sin(phase_y)
+      #  phase = np.arctan2(ReY, ReX)
+
+
+        self.win_phasex[j]   = phase_x
+        self.win_phasex[j+N] = phase_x
+        self.win_phasey[j]   = phase_y
+        self.win_phasey[j+N] = phase_y
         self.win_phase[j]    = phase
         self.win_phase[j+N]  = phase
 
@@ -205,7 +213,7 @@ class PlotWindow(QWidget):
         
 
     def update(self):
-        print(f"len deque: {len(self.accx_buf)}")
+        #print(f"len deque: {len(self.accx_buf)}")
 
         # shift one sample 
         N = self.windowSize
@@ -225,7 +233,7 @@ class PlotWindow(QWidget):
         peak_idx_x = masked_indices[peak_idx_x]
         peak_freq = self.freqs[peak_idx_x]
 
-        print(f"frequency: {peak_freq}, DPS: {peak_freq*360}")
+       # print(f"frequency: {peak_freq}, DPS: {peak_freq*360}")
 
 #        heading_rate = gx*np.cos(phi)-gy*np.sin(phi)
 #        roll_rate    = gx*np.sin(phi)+gy*np.cos(phi)
@@ -238,8 +246,8 @@ class PlotWindow(QWidget):
         self.curve5.setData(self.freqs,np.abs(fy)) 
 #        self.curve6.setData(freqs,argy)
 
-        self.curve7.setData(np.cos(phi))
-#        self.curve8.setData(phase_y)
+        self.curve7.setData(phi)
+        self.curve8.setData(phase_x)
 
         # filtered curves
         #self.curve12.setData(t1,xl)
