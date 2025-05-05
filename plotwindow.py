@@ -85,7 +85,6 @@ class PlotWindow(QWidget):
             self.ble_worker.data_received.connect(self.read_data)
             self.ble_worker.start_ble()
 
-
         self.timer = QtCore.QTimer() # Timer to shift samples
         self.timer.timeout.connect(self.shift_window)
         self.timer.start(2) # 100Hz

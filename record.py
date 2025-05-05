@@ -16,6 +16,8 @@ from plotwindow import PlotWindow
 
 address = "DC:1E:D5:1B:E9:FE" # ESP MAC address
 
+
+"""
 def generate_signals(plot):
     fs = 100 # sampling frequency
     T = 100 # signal length
@@ -58,6 +60,8 @@ def generate_signals(plot):
 
     rows = np.array([c1,c2,np.abs(f1),np.abs(f2), argx, argy])
     plot.received_data = rows
+"""
+
 
 def setup_csv():
     f = open("recording.txt", "a", newline="")
@@ -89,7 +93,7 @@ if __name__ == "__main__":
     f,writer = setup_csv()
     plot = PlotWindow(loop, False, writer) # no playback
     setup_graceful_shutdown(loop,plot)
-    generate_signals(plot)
+#    generate_signals(plot)
 
     plot.show()
     QtCore.QTimer.singleShot(0, plot.ble_worker.start_ble) # Ensures GUI is fully initialized (may also work without singleShot)
