@@ -78,13 +78,6 @@ class PlotWindow(QWidget):
         self.latest_data = np.empty((6,0)) 
         self.data6= np.zeros(self.bufferSize)
 
-        """
-        self.loop = loop
-        self.ble_worker = BLEWorker(address,loop)
-        self.ble_worker.data_received.connect(self.read_data)
-        self.ble_worker.start_ble()
-        """
-
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update)
         self.timer.start(50)
@@ -117,11 +110,11 @@ class PlotWindow(QWidget):
             d1 = self.data1[i*10:i*10+100]
             d2 = self.data2[i*10:i*10+100]
 
-            d1 = output_signal = filtfilt(b, a, c1)
-            d2 = output_signal = filtfilt(b, a, c2)
+            d1 = output_signal = filtfilt(b, a, d1)
+            d2 = output_signal = filtfilt(b, a, d2)
 
-            f1 = fftshift(fft(c1)/len(c1)) # fft_x
-            f2 = fftshift(fft(c2)/len(c2)) # fft_y
+            f1 = fftshift(fft(d1)/len(d1)) # fft_x
+            f2 = fftshift(fft(d2)/len(d2)) # fft_y
 
             f1[np.abs(f1)<1e-6]=0
             f2[np.abs(f2)<1e-6]=0
@@ -129,7 +122,7 @@ class PlotWindow(QWidget):
             f1[np.abs(f1) != np.max(np.abs(f1))] = 0
             f2[np.abs(f2) != np.max(np.abs(f2))] = 0
 
-            freqs = fftshift(fftfreq(len(c1), d = 1/fs))
+            freqs = fftshift(fftfreq(len(d1), d = 1/fs))
 
             argx = np.angle(f1)
             argy = np.angle(f2)
@@ -159,87 +152,20 @@ class PlotWindow(QWidget):
             """
 
                 # update
-            self.curve1.setData(t1,c1)
-            self.curve2.setData(t1,c2) 
+            self.curve1.setData(t1,d1)
+            self.curve2.setData(t1,d2) 
             self.curve3.setData(freqs,np.abs(f1)) 
             self.curve4.setData(freqs,np.abs(f2)) 
             self.curve5.setData(freqs,argx) 
             self.curve6.setData(freqs,argy) 
 
-            self.curve12.setData(t1,d1)
-            self.curve22.setData(t1,d2) 
+        #    self.curve12.setData(t1,d1)
+        #    self.curve22.setData(t1,d2) 
 
         self.counter +=1
 
 #        self.latest_data = np.empty((4, 0))
 
-"""
-# Manages BLE communication and reads data asynchronously
-class BLEWorker(QtCore.QObject):
-    data_received = QtCore.pyqtSignal(list)
-
-    def __init__(self, address, loop, parent = None):
-        super().__init__()
-        self.loop = loop
-        self.address = address #ESP MAC
-
-    # Called when new data is received
-    async def notification_handler(self, sender, data):
-        
-        received = convert_to_float(data)
-        #print(f"shape received: {np.shape(received)}\n")
-        
-        self.data_received.emit(received.flatten().tolist()) # emits to read_data()
-
-
-    async def read_ble(self):
-        # Connect to ESP
-        async with BleakClient(self.address) as client:
-
-            #a_scale = ACC_SCALES["2G"]
-            #g_scale = GYRO_SCALES["250DPS"]
-
-            # send scale parameters to ESP
-            #scales = bytes([a_scale, g_scale], 'big')
-            #await client.write_gatt_char(PARAMS_UUID, scales)
-
-            # for bias and scale correction
-            param_data = await client.read_gatt_char(PARAMS_UUID)
-            global bias_values
-            bias_values = [int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2)]
-
-            # print("Adjustment values:", bias_values)
-
-            await client.start_notify(CHARACTERISTIC_UUID, self.notification_handler)
-            
-            # print("start notify complete")
-
-            while True:
-                await asyncio.sleep(0.1)
-
-    # create tasks
-    def start_ble(self):
-        asyncio.run_coroutine_threadsafe(self.read_ble(), self.loop)  # Submit coroutine to loop 
-
-
-
-def convert_to_float():
-   
-    # Scale and bias correction from raw data
-    data_arr = np.frombuffer(buffer, dtype='>i2').astype(np.float32)
-    data_arr = data_arr.reshape(-1,6)
-    scaled = data_arr / dividers - bias_values
-    scaled = scaled.T
-
-    # Implement windowing here? 
-
-    # fft (of accelerometer in x, y)
-    X = fft(scaled[0,:])
-    Y = fft(scaled[1,:])
-#    argx = 
-
-    return scaled
-"""
 
 def generate_signals(plot):
     fs = 100 # sampling frequency
@@ -303,8 +229,8 @@ if __name__ == "__main__":
     plot = PlotWindow()
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    #generate_signals(plot)
-    read_recording(plot)
+    generate_signals(plot)
+    #read_recording(plot)
 
     plot.show()
     app.exec()
