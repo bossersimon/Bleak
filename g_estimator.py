@@ -282,6 +282,7 @@ def generate_signals(plot):
     argx = np.angle(f1)
     argy = np.angle(f2)
 
+    rows = np.array([c1,c2,np.abs(f1),np.abs(f2), argx, argy])
     plot.latest_data = rows
 
 def read_recording(plot):
