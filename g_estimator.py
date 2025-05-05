@@ -11,7 +11,6 @@ import math
 
 from bleak import BleakClient
 import asyncio
-#import sys
 import qasync
 import signal
 
@@ -130,21 +129,6 @@ class PlotWindow(QWidget):
         self.data1[-chunk_size:] = self.latest_data[0]
         self.data2[-chunk_size:] = self.latest_data[1]
 
-        """
-        # DC blocker
-        beta = 0.99
-        gain = (1.0+beta)/2.0
-        in_x = self.data1
-        in_y = self.data2
-        out_x, out_y = [0],[0]
-        for j in range(len(in_x)):
-            if j:
-                out_x.append(gain*(in_x[j]-in_x[j-1])+beta*out_x[j-1])
-                out_y.append(gain*(in_x[j]-in_x[j-1])+beta*out_x[j-1])
-        self.data1 = out_x
-        self.data2 = out_y
-        """
-
         # calculate fft, arguments
         xl = filtfilt(b, a, self.data1)
         yl = filtfilt(b, a, self.data2)
@@ -234,24 +218,12 @@ class BLEWorker(QtCore.QObject):
         # Connect to ESP
         async with self.client as client:
 
-            #a_scale = ACC_SCALES["2G"]
-            #g_scale = GYRO_SCALES["250DPS"]
-
-            # send scale parameters to ESP
-            #scales = bytes([a_scale, g_scale], 'big')
-            #await client.write_gatt_char(PARAMS_UUID, scales)
-    
-            # for bias and scale correction
             param_data = await client.read_gatt_char(PARAMS_UUID)
             global bias_values
             bias_values = [int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2)]
 
-            # print("Adjustment values:", bias_values)
-
             await client.start_notify(CHARACTERISTIC_UUID, self.notification_handler)
             
-            # print("start notify complete")
-
             while True:
                 await asyncio.sleep(0.1)
 
@@ -285,7 +257,6 @@ def generate_signals(plot):
 
     chunk_size = 100
 
-#    window = np.hanning(1000)
     window = 1
     t1 = np.arange(N,dtype=float)/fs
     c1 = np.random.normal(size=N)
@@ -311,10 +282,6 @@ def generate_signals(plot):
     argx = np.angle(f1)
     argy = np.angle(f2)
 
-#    argx= np.unwrap(argx)
-#    argy= np.unwrap(argy)
-
-    rows = np.array([c1,c2,np.abs(f1),np.abs(f2), argx, argy])
     plot.latest_data = rows
 
 def read_recording(plot):
@@ -340,13 +307,11 @@ if __name__ == "__main__":
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
 
-  #  signal.signal(signal.SIGINT, signal.SIG_DFL)
-
     plot = PlotWindow(loop)
     setup_graceful_shutdown(loop,plot)
 
-    #generate_signals(plot)
-    read_recording(plot)
+    generate_signals(plot)
+#    read_recording(plot)
     plot.show()
    # QtCore.QTimer.singleShot(0,plot.ble_worker.start_ble)
 
