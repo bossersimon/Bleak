@@ -51,6 +51,7 @@ class PlotWindow(QWidget):
 
         self.curve7 = self.pw6.plot(symbol = "o", symbolSize=5, symbolBrush="r")
         self.curve8 = self.pw6.plot(symbol ="o", symbolSize=5, symbolBrush="b")
+        self.curve+ = self.pw6.plot(pen="g")
 
         # data buffers
         self.accx_buf = deque()
@@ -67,7 +68,9 @@ class PlotWindow(QWidget):
         self.win_accy = np.zeros(2*self.windowSize)
         self.win_phasex= np.zeros(2*self.windowSize)
         self.win_phasey= np.zeros(2*self.windowSize)
-        self.win_gyroz = np.zeros(2*self.windowSize)
+        self.win_gx = np.zeros(2*self.windowSize)
+        self.win_gy = np.zeros(2*self.windowSize)
+        self.win_gz = np.zeros(2*self.windowSize)
         self.win_phase = np.zeros(2*self.windowSize)
 
         self.loop = loop
@@ -149,15 +152,20 @@ class PlotWindow(QWidget):
         j = self.count % N
         new_x = self.accx_buf.popleft()
         new_y = self.accy_buf.popleft()
+        new_gx = self.gyrox_buf.popleft()
+        new_gy = self.gyroy_buf.popleft()
         new_gz = self.gyroz_buf.popleft()
 
         self.win_accx[j]   = new_x
         self.win_accx[j+N] = new_x
         self.win_accy[j]   = new_y
         self.win_accy[j+N] = new_y
-
-        self.win_gyroz[j]   = new_gz
-        self.win_gyroz[j+N] = new_gz
+        self.win_gx[j]   = new_gx
+        self.win_gx[j+N] = new_gx
+        self.win_gy[j]   = new_gy
+        self.win_gy[j+N] = new_gy
+        self.win_gz[j]   = new_gz
+        self.win_gz[j+N] = new_gz
 
         acc_x = self.win_accx[j+1:j+N+1] # current window
         acc_y = self.win_accy[j+1:j+N+1]
@@ -217,12 +225,14 @@ class PlotWindow(QWidget):
         # shift one sample 
         N = self.windowSize
         j = (self.count-1) % N
-        acc_x =   self.win_accx[j+1:j+N+1] # current window
-        acc_y =   self.win_accy[j+1:j+N+1]
+        acc_x   = self.win_accx[j+1:j+N+1] # current window
+        acc_y   = self.win_accy[j+1:j+N+1]
         phase_x = self.win_phasex[j+1:j+N+1]
         phase_y = self.win_phasey[j+1:j+N+1]
-        gyro_z =  self.win_gyroz[j+1:j+N+1]
-        phi =   self.win_phase[j+1:j+N+1]
+        gx      = self.win_gx[j+1:j+N+1]
+        gy      = self.win_gy[j+1:j+N+1]
+        gz      = self.win_gz[j+1:j+N+1]
+        phi     = self.win_phase[j+1:j+N+1]
         
         fx = fftshift(np.fft.fft(acc_x))
         fy = fftshift(np.fft.fft(acc_y))
@@ -240,14 +250,11 @@ class PlotWindow(QWidget):
         # update
         self.curve1.setData(self.t,acc_x) # ax
         self.curve2.setData(self.t,acc_y) # ay
-        self.curve3.setData(self.t,gyro_z)
+        self.curve3.setData(self.t,gz)
         self.curve4.setData(self.freqs,np.abs(fx)) 
         self.curve5.setData(self.freqs,np.abs(fy)) 
-#        self.curve6.setData(freqs,argy)
 
-        self.curve7.setData(phi)
-        self.curve8.setData(phase_x)
+        self.curve7.setData(phase_x)
+        self.curve8.setData(phase_y)
+        self.curve9.setData(phi)
 
-        # filtered curves
-        #self.curve12.setData(t1,xl)
-        #self.curve22.setData(t1,yl) 
