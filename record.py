@@ -57,7 +57,7 @@ def generate_signals(plot):
     argy = np.angle(f2)
 
     rows = np.array([c1,c2,np.abs(f1),np.abs(f2), argx, argy])
-    plot.latest_data = rows
+    plot.received_data = rows
 
 def setup_csv():
     f = open("recording.txt", "a", newline="")
@@ -79,7 +79,6 @@ def setup_graceful_shutdown(loop, plot):
     app.aboutToQuit.connect(lambda: loop.create_task(shutdown()))
         
 
-
 if __name__ == "__main__":
 
     # Application for managing GUI application
@@ -87,17 +86,14 @@ if __name__ == "__main__":
     loop = qasync.QEventLoop(app) 
     asyncio.set_event_loop(loop)
 
-    #signal.signal(signal.SIGINT, signal.SIG_DFL)
-
     f,writer = setup_csv()
-    plot = PlotWindow(loop, writer)
+    plot = PlotWindow(loop, False, writer) # no playback
     setup_graceful_shutdown(loop,plot)
+    generate_signals(plot)
 
     plot.show()
     QtCore.QTimer.singleShot(0, plot.ble_worker.start_ble) # Ensures GUI is fully initialized (may also work without singleShot)
     
     with loop:
         loop.run_forever()
-
-    #sys.exit(plot.app.exec())
 

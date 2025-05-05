@@ -114,7 +114,7 @@ class PlotWindow(QWidget):
     def read_data(self, new_data):
         self.received_data = np.array(new_data).reshape(6,-1)
         if self.writer:
-            self.writer.writerows(self.latest_data.T)
+            self.writer.writerows(self.received_data.T)
 
         self.accx_buf.extend(self.received_data[0])
         self.accy_buf.extend(self.received_data[1])
