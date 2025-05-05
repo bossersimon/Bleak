@@ -11,21 +11,8 @@ import math
 
 from bleak import BleakClient
 import asyncio
-#import sys
 import qasync
 import signal
-
-"""
-address = "DC:1E:D5:1B:E9:FE" # ESP MAC address
-CHARACTERISTIC_UUID = "c1756f0e-07c7-49aa-bd64-8494be4f1a1c" # Data characteristic
-PARAMS_UUID = "97b28d55-f227-4568-885a-4db649a8e9fd" # Parameter characteristic
-
-# Scale parameters
-acc_divider = 16384
-gyro_divider = 131
-dividers = [acc_divider, acc_divider, acc_divider, gyro_divider, gyro_divider, gyro_divider]
-bias_values = [0,0,0]
-"""
 
 class PlotWindow(QWidget):
 
@@ -39,7 +26,7 @@ class PlotWindow(QWidget):
         self.pw2 = pg.PlotWidget(title="y")
         self.pw3 = pg.PlotWidget(title="X")
         self.pw4 = pg.PlotWidget(title="Y")
-        self.pw5 = pg.PlotWidget(title="arg(X)")
+        self.pw5 = pg.PlotWidget(title="instantaneous phase. r = x, b = y, g = unambiguous x")
         self.pw6 = pg.PlotWidget(title="arg(Y)")
 
         self.pw1.resize(1000,800)
@@ -65,6 +52,10 @@ class PlotWindow(QWidget):
         self.curve5 = self.pw5.plot(pen="w")
         self.curve6 = self.pw6.plot(pen="w")
 
+        self.curve7 = self.pw5.plot(symbol = "o", symbolSize=5, symbolBrush="r")
+        self.curve8 = self.pw5.plot(symbol ="o", symbolSize=5, symbolBrush="b")
+        self.curve9 = self.pw5.plot(pen="g")
+
         self.curve12 = self.pw1.plot(pen="r")
         self.curve22 = self.pw2.plot(pen="r")
 
@@ -78,16 +69,17 @@ class PlotWindow(QWidget):
         self.latest_data = np.empty((6,0)) 
         self.data6= np.zeros(self.bufferSize)
 
+        self.chunk_size = 100
+        self.win_phasex= np.zeros(2*self.chunk_size)
+        self.win_phasey= np.zeros(2*self.chunk_size)
+        self.win_phase = np.zeros(2*self.chunk_size)
+
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update)
         self.timer.start(50)
+        self.count = 0
 
         self.counter = 0
-
-    """
-    def read_data(self, new_data):
-        self.latest_data = np.array(new_data).reshape(6,-1)
-    """
         
     def update(self):
         i = self.counter
@@ -97,75 +89,64 @@ class PlotWindow(QWidget):
         Wn = 0.5
         b, a = butter(order, Wn, 'low')
 
-        chunk_size = 100
         fs = 100
-        t1 = np.arange(chunk_size,dtype=float)/fs
+        t1 = np.arange(self.chunk_size,dtype=float)/fs
 
-        freqs = fftshift(fftfreq(100, d = 1/fs))
+        freqs = fftshift(fftfreq(self.chunk_size, d = 1/fs))
+
+        th = 1.0 # mask anything above 1 Hz 
+        mask = freqs > th
+        n_shift = 1
 
         if i<=990:
             self.data1 = self.latest_data[0] # acc_x
             self.data2 = self.latest_data[1] # acc_y
 
-            d1 = self.data1[i*10:i*10+100]
-            d2 = self.data2[i*10:i*10+100]
+            d1 = filtfilt(b,a,self.data1[i*n_shift:i*n_shift+100])
+            d2 = filtfilt(b,a,self.data2[i*n_shift:i*n_shift+100])
 
-            d1 = output_signal = filtfilt(b, a, d1)
-            d2 = output_signal = filtfilt(b, a, d2)
+            fx = np.fft.fft(d1)
+            fy = np.fft.fft(d2)
 
-            f1 = fftshift(fft(d1)/len(d1)) # fft_x
-            f2 = fftshift(fft(d2)/len(d2)) # fft_y
+            peak_idx_x = np.argmax(np.abs(fx[mask])) # index of wanted frequency relative
+            peak_idx_y = np.argmax(np.abs(fy[mask])) # to masked array
 
-            f1[np.abs(f1)<1e-6]=0
-            f2[np.abs(f2)<1e-6]=0
+            masked_indices = np.where(mask)[0] # [0] gives indices of True condition
+            peak_idx_x = masked_indices[peak_idx_x] # index in full array corresponding 
+            peak_idx_y = masked_indices[peak_idx_y] # to wanted frequency
+            
+            X = fx[peak_idx_x]
+            Y = fy[peak_idx_y]
+            phase  = np.angle(X + 1j*Y)
+            
+            phase_x = np.angle(fx[peak_idx_x]) 
+            phase_y = np.angle(fy[peak_idx_y])
 
-            f1[np.abs(f1) != np.max(np.abs(f1))] = 0
-            f2[np.abs(f2) != np.max(np.abs(f2))] = 0
+            N = self.chunk_size
+            j = self.count % N
+            self.win_phasex[j]   = phase_x
+            self.win_phasex[j+N] = phase_x
+            self.win_phasey[j]   = phase_y
+            self.win_phasey[j+N] = phase_y
+            self.win_phase[j]    = phase
+            self.win_phase[j+N]  = phase
 
-            freqs = fftshift(fftfreq(len(d1), d = 1/fs))
-
-            argx = np.angle(f1)
-            argy = np.angle(f2)
-
-            """
-            self.data3 = np.abs(f1)
-            self.data4 = np.abs(f2)
-            self.data5 = argx
-            self.data6 = argy
-            """
-
-            """
-            self.data3 = self.latest_data[2]
-            self.data4 = self.latest_data[3]
-            self.data5 = self.latest_data[4]
-            self.data6 = self.latest_data[5]
-            """
-
-            """ # shift old data self.data1 = np.roll(self.data1, -chunk_size) self.data2 = np.roll(self.data2, -chunk_size) self.data3 = np.roll(self.data3, -chunk_size)
-            self.data4 = np.roll(self.data4, -chunk_size)
-
-            # read new data into data buffers
-            self.data1[-chunk_size:] = self.latest_data[0]
-            self.data2[-chunk_size:] = self.latest_data[1]
-            self.data3[-chunk_size:] = self.latest_data[2]
-            self.data4[-chunk_size:] = self.latest_data[3]
-            """
+            phase_x = self.win_phasex[j+1:j+N+1]
+            phase_y = self.win_phasey[j+1:j+N+1]
+            phi     = self.win_phase[j+1:j+N+1]
 
                 # update
             self.curve1.setData(t1,d1)
             self.curve2.setData(t1,d2) 
-            self.curve3.setData(freqs,np.abs(f1)) 
-            self.curve4.setData(freqs,np.abs(f2)) 
-            self.curve5.setData(freqs,argx) 
-            self.curve6.setData(freqs,argy) 
+            self.curve3.setData(freqs,np.abs(fx)) 
+            self.curve4.setData(freqs,np.abs(fy)) 
+            self.curve7.setData(t1,phase_x) 
+            self.curve8.setData(t1,phase_y) 
+            self.curve9.setData(t1,phi) 
 
-        #    self.curve12.setData(t1,d1)
-        #    self.curve22.setData(t1,d2) 
+            self.count +=1
 
         self.counter +=1
-
-#        self.latest_data = np.empty((4, 0))
-
 
 def generate_signals(plot):
     fs = 100 # sampling frequency
@@ -196,32 +177,24 @@ def generate_signals(plot):
     new_arr = np.hstack((c1.reshape(-1,1),c2.reshape(-1,1)))
     np.savetxt("recording.txt", new_arr, delimiter=",", fmt="%.18e")
 
-    f1 = fftshift(fft(d1)/len(d1))
-    f2 = fftshift(fft(d2)/len(d2))
+    fx = fftshift(fft(d1)/len(d1))
+    fy = fftshift(fft(d2)/len(d2))
 
-    f1[np.abs(f1)<1e-6]=0
-    f2[np.abs(f2)<1e-6]=0
+    fx[np.abs(fx)<1e-6]=0
+    fy[np.abs(fy)<1e-6]=0
 
     freqs = fftshift(fftfreq(len(d1), d = 1/fs))
 
-    argx = np.angle(f1)
-    argy = np.angle(f2)
+    argx = np.angle(fx)
+    argy = np.angle(fy)
 
-#    argx= np.unwrap(argx)
-#    argy= np.unwrap(argy)
-
-    rows = np.array([c1,c2,np.abs(f1),np.abs(f2), argx, argy])
+    rows = np.array([c1,c2,np.abs(fx),np.abs(fy), argx, argy])
     plot.latest_data = rows
 
 def read_recording(plot):
     loaded_data = np.loadtxt("recording1.txt", delimiter = ",")
-#    print(f"loaded_data shape: {np.shape(loaded_data)}\n")
-    
     loaded_data = loaded_data.T
-
     plot.latest_data= np.empty((6,loaded_data.shape[1]))
-
- #   plot.latest_data[:2,:] = loaded_data
     plot.latest_data = loaded_data
 
 if __name__ == "__main__":
