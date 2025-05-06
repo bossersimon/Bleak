@@ -40,18 +40,17 @@ class PlotWindow(QWidget):
         self.setLayout(layout)
 
         self.curve1 = self.pw1.plot(pen="w")
-        self.curve2 = self.pw2.plot(pen="w")
-        self.curve3 = self.pw3.plot(pen="w")
-        self.curve4 = self.pw4.plot(pen="w")
-        self.curve5 = self.pw5.plot(pen="w")
-        self.curve6 = self.pw6.plot(pen="w")
+        self.curve2 = self.pw1.plot(pen="r")
+        self.curve3 = self.pw2.plot(pen="w")
+        self.curve4 = self.pw3.plot(pen="w")
+        self.curve5 = self.pw4.plot(pen="w")
 
-#        self.curve12 = self.pw1.plot(pen="r")
-#        self.curve22 = self.pw2.plot(pen="r")
+        self.curve6 = self.pw5.plot(symbol = "o", symbolSize=5, symbolBrush="r")
+        self.curve7 = self.pw5.plot(symbol ="o", symbolSize=5, symbolBrush="b")
+        self.curve8 = self.pw5.plot(pen="g")
 
-        self.curve7 = self.pw6.plot(symbol = "o", symbolSize=5, symbolBrush="r")
-        self.curve8 = self.pw6.plot(symbol ="o", symbolSize=5, symbolBrush="b")
-        self.curve+ = self.pw6.plot(pen="g")
+        self.curve9 = self.pw6.plot(pen="y")
+        self.curveA = self.pw6.plot(pen="p")
 
         # data buffers
         self.accx_buf = deque()
@@ -72,6 +71,10 @@ class PlotWindow(QWidget):
         self.win_gy = np.zeros(2*self.windowSize)
         self.win_gz = np.zeros(2*self.windowSize)
         self.win_phase = np.zeros(2*self.windowSize)
+
+        self.win_heading = np.zeros(2*self.windowSize)
+        self.win_roll = np.zeros(2*self.windowSize)
+
 
         self.loop = loop
         self.ble_worker = BLEWorker(loop, address)
@@ -193,17 +196,20 @@ class PlotWindow(QWidget):
         phase_x = np.angle(fx[peak_idx_x]) 
         phase_y = np.angle(fy[peak_idx_y])
 
-      #  ReX = np.abs(fx[peak_idx_x])*np.cos(phase_x)
-      #  ReY = np.abs(fy[peak_idx_y])*np.sin(phase_y)
-      #  phase = np.arctan2(ReY, ReX)
-
-
         self.win_phasex[j]   = phase_x
         self.win_phasex[j+N] = phase_x
         self.win_phasey[j]   = phase_y
         self.win_phasey[j+N] = phase_y
         self.win_phase[j]    = phase
         self.win_phase[j+N]  = phase
+
+        heading_rate = new_gx*np.cos(phi)-new_gy*np.sin(phi)
+        roll_rate    = new_gx*np.sin(phi)+new_gy*np.cos(phi)
+
+        self.win_heading[j]  = heading_rate
+        self.win_heading[j+N]= heading_rate
+        self.win_roll[j]     = roll_rate
+        self.win_roll[j+N]   = roll_rate
 
         self.count+=1
 
@@ -233,7 +239,10 @@ class PlotWindow(QWidget):
         gy      = self.win_gy[j+1:j+N+1]
         gz      = self.win_gz[j+1:j+N+1]
         phi     = self.win_phase[j+1:j+N+1]
-        
+
+        heading_rate = self.win_heading[j+1:j+N+1]
+        roll_rate    = self.win_roll[j+1:j+N+1]
+
         fx = fftshift(np.fft.fft(acc_x))
         fy = fftshift(np.fft.fft(acc_y))
     
@@ -254,7 +263,9 @@ class PlotWindow(QWidget):
         self.curve4.setData(self.freqs,np.abs(fx)) 
         self.curve5.setData(self.freqs,np.abs(fy)) 
 
-        self.curve7.setData(phase_x)
-        self.curve8.setData(phase_y)
-        self.curve9.setData(phi)
+        self.curve6.setData(phase_x)
+        self.curve7.setData(phase_y)
+        self.curve8.setData(phi)
+        self.curve9.setData(heading_rate)
+        self.curveA.setData(roll_rate)
 
