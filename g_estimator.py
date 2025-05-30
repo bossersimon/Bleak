@@ -40,11 +40,11 @@ if __name__ == "__main__":
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
 
-    playback = True
+    playback = False
     plot = PlotWindow(loop, playback)
     setup_graceful_shutdown(loop,plot)
 
-    read_recording(plot)
+#    read_recording(plot)
     plot.show()
     QtCore.QTimer.singleShot(0,plot.ble_worker.start_ble)
 

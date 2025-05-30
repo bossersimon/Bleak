@@ -25,8 +25,8 @@ class PlotWindow(QWidget):
         self.pw2 = pg.PlotWidget(title="gyro_z")
         self.pw3 = pg.PlotWidget(title="fft(x)")
         self.pw4 = pg.PlotWidget(title="fft(y)")
-        self.pw5 = pg.PlotWidget(title="phi")
-        self.pw6 = pg.PlotWidget(title="dphi")
+        self.pw5 = pg.PlotWidget(title="dphi")
+        self.pw6 = pg.PlotWidget(title="phi")
         
         layout.addWidget(self.pw1, 0,0)
         layout.addWidget(self.pw2, 0,1)
@@ -110,8 +110,8 @@ class PlotWindow(QWidget):
         self.fs = 100 # sampling frequency
         self.t = np.arange(self.windowSize,dtype=float)/self.fs
 
-        self.freqs = fftshift(fftfreq(self.windowSize, d = 1/self.fs))
-        th = 1.0 # mask anything above 1 Hz 
+        self.freqs = fftfreq(self.windowSize, d = 1/self.fs)
+        th = 0.5 # mask anything above 1 Hz 
         self.mask = self.freqs > th
 
         self.writer = file_writer
@@ -189,7 +189,11 @@ class PlotWindow(QWidget):
         masked_indices = np.where(self.mask)[0] # [0] gives indices of True condition
         peak_idx = masked_indices[np.argmax(np.abs(fx[self.mask]))] # index in full array corresponding to wanted frequency
 
-        X = fx[peak_idx]
+        #combined = np.abs(fx)**2 + np.abs(fy)**2
+        #peak_idx = np.argmax(combined[self.mask])
+        #peak_idx = masked_indices[peak_idx]
+
+        X = fx[peak_idx] # magnitudes at peak frequency
         Y = fy[peak_idx]
         phase  = np.angle(X + 1j*Y)
         
@@ -206,10 +210,10 @@ class PlotWindow(QWidget):
         heading_rate = new_gx*np.cos(phase)-new_gy*np.sin(phase)
         roll_rate    = new_gx*np.sin(phase)+new_gy*np.cos(phase)
 
-        peak_freq = self.freqs[peak_idx_x]
-        dphi = 360*peak_freq
+        peak_freq = self.freqs[peak_idx]
+        dphi = self.freqs[peak_idx]*360
 
-        print(f"frequency: {peak_freq}, DPS: {dphi}")
+        #print(f"frequency: {peak_freq}, DPS: {dphi}")
 
         self.win_dphi[j]     = dphi
         self.win_dphi[j+N]   = dphi
@@ -255,28 +259,19 @@ class PlotWindow(QWidget):
 
         fx = fftshift(np.fft.fft(acc_x))
         fy = fftshift(np.fft.fft(acc_y))
-    
-        masked_indices = np.where(self.mask)[0]
-        peak_idx_x = np.argmax(np.abs(fx[self.mask]))
-        peak_idx_x = masked_indices[peak_idx_x]
-        peak_freq = self.freqs[peak_idx_x]
 
-        #print(f"frequency: {peak_freq}, DPS: {peak_freq*360}")
-
-        #heading_rate = gx*np.cos(phi)-gy*np.sin(phi)
-        #roll_rate    = gx*np.sin(phi)+gy*np.cos(phi)
-
+        freqs = fftshift(self.freqs)
 
         # update
         self.curve1.setData(self.t,acc_x) # ax
         self.curve2.setData(self.t,acc_y) # ay
         self.curve3.setData(self.t,gz)
-        self.curve4.setData(self.freqs,np.abs(fx)) 
-        self.curve5.setData(self.freqs,np.abs(fy)) 
+        self.curve4.setData(freqs,np.abs(fx)) 
+        self.curve5.setData(freqs,np.abs(fy)) 
 
         #self.curve6.setData(phase_x)
         #self.curve7.setData(phase_y)
-        self.curve8.setData(phi)
+        self.curve9.setData(phi)
 
-        self.curve9.setData(dphi)
+        self.curve8.setData(dphi)
         #self.curveA.setData(roll_rate)
