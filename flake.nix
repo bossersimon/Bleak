@@ -3,7 +3,7 @@
   description = "Qt6 + Python Dev Environment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/f0946fa5f1fb876a9dc2e1850d9d3a4e3f914092";
     flakeutils.url = "github:numtide/flake-utils";
   };
 
@@ -35,8 +35,8 @@
             pkgs.gtk-engine-murrine
           ];
           shellHook = ''
-            export QT_PLUGIN_PATH=${pkgs.qt6.qtbase}/lib/qt-*/plugins
-            export QT_QPA_PLATFORM_PLUGIN_PATH=${pkgs.qt6.qtbase}/lib/qt-*/plugins
+                export QT_PLUGIN_PATH=${pkgs.qt6.qtbase}/lib/qt-*/plugins
+                export QT_QPA_PLATFORM_PLUGIN_PATH=${pkgs.qt6.qtbase}/lib/qt-*/plugins
           '';
         };
 
