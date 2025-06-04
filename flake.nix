@@ -26,7 +26,6 @@
               p.pyqtgraph
               p.pyqt6
               p.qasync
-
               p.scipy
               p.bleak
             ]))
@@ -34,10 +33,13 @@
 #            pkgs.qt6.wrapQtAppsHook
             pkgs.gtk-engine-murrine
           ];
-          shellHook = ''
-                export QT_PLUGIN_PATH=${pkgs.qt6.qtbase}/lib/qt-*/plugins
-                export QT_QPA_PLATFORM_PLUGIN_PATH=${pkgs.qt6.qtbase}/lib/qt-*/plugins
-          '';
+
+        shellHook = ''
+            export QT_PLUGIN_PATH=${pkgs.qt6.qtbase}/lib/qt6/plugins
+            export QT_QPA_PLATFORM_PLUGIN_PATH=${pkgs.qt6.qtbase}/lib/qt6/plugins
+            export QT_STYLE_OVERRIDE=
+            export QT_QPA_PLATFORMTHEME=
+        '';
         };
 
       } else {}
