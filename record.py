@@ -1,4 +1,3 @@
-
 # pyqt_read.py
 
 import asyncio
@@ -10,6 +9,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout
 import qasync
 import csv
 import signal
+import datetime
 
 from plotwindow import PlotWindow
 
@@ -64,9 +64,23 @@ def generate_signals(plot):
 
 
 def setup_csv():
-    f = open("recording.txt", "a", newline="")
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"recording_{timestamp}.csv"
+    print(f"[INFO] Recording to: {filename}")
+    f = open(filename, "a", newline="")
     writer = csv.writer(f)
-    return f,writer
+    # Write header row
+    header = [
+        "timestamp",
+        "acc_x",
+        "acc_y",
+        "acc_z",
+        "gyro_x",
+        "gyro_y",
+        "gyro_z"
+    ]
+    writer.writerow(header)
+    return f, writer, filename
 
 
 def setup_graceful_shutdown(loop, plot):
@@ -90,7 +104,7 @@ if __name__ == "__main__":
     loop = qasync.QEventLoop(app) 
     asyncio.set_event_loop(loop)
 
-    f,writer = setup_csv()
+    f,writer,filename = setup_csv()
     plot = PlotWindow(loop, False, writer) # no playback
     setup_graceful_shutdown(loop,plot)
 #    generate_signals(plot)
@@ -100,4 +114,9 @@ if __name__ == "__main__":
     
     with loop:
         loop.run_forever()
+
+# Patch PlotWindow or wherever data is written to add timestamp
+# This assumes you call writer.writerow somewhere with your data row
+# Example patch for a data write:
+# writer.writerow([datetime.datetime.now().isoformat(), ...data...])
 

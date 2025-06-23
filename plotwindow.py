@@ -1,4 +1,3 @@
-
 # PlotWindow class
 import numpy as np
 import pyqtgraph as pg
@@ -118,9 +117,17 @@ class PlotWindow(QWidget):
 
     
     def read_data(self, new_data):
+        import datetime
         self.received_data = np.array(new_data).reshape(6,-1)
+        print(f"[DEBUG] Received data shape: {self.received_data.shape}")
+        print(f"[DEBUG] First row: {self.received_data[:,0] if self.received_data.shape[1] > 0 else 'N/A'}")
         if self.writer:
-            self.writer.writerows(self.received_data.T)
+            # Add timestamp to each row
+            for row in self.received_data.T:
+                timestamp = datetime.datetime.now().isoformat()
+                row_with_time = [timestamp] + row.tolist()
+                print(f"[DEBUG] Writing row: {row_with_time}")
+                self.writer.writerow(row_with_time)
 
         self.accx_buf.extend(self.received_data[0])
         self.accy_buf.extend(self.received_data[1])
