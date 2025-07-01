@@ -22,7 +22,8 @@ class PlotWindow(QWidget):
         layout = QGridLayout()
 
         self.pw1 = pg.PlotWidget(title="acc_x, acc_y")
-        self.pw2 = pg.PlotWidget(title="gyro_z")
+#        self.pw2 = pg.PlotWidget(title="gyro_z")
+        self.pw2 = pg.PlotWidget(title="acc_z")
         self.pw3 = pg.PlotWidget(title="fft(x)")
         self.pw4 = pg.PlotWidget(title="fft(y)")
         self.pw5 = pg.PlotWidget(title="dphi")
@@ -61,10 +62,10 @@ class PlotWindow(QWidget):
 
         self.received_data = np.empty((6,0)) 
 
-        self.windowSize = 500
+        self.windowSize = 2000 
         self.win_accx = np.zeros(2*self.windowSize)
         self.win_accy = np.zeros(2*self.windowSize)
-        #self.win_accz = np.zeros(2*self.windowSize)
+        self.win_accz = np.zeros(2*self.windowSize)
         self.win_phasex= np.zeros(2*self.windowSize)
         self.win_phasey= np.zeros(2*self.windowSize)
         self.win_gx = np.zeros(2*self.windowSize)
@@ -82,6 +83,7 @@ class PlotWindow(QWidget):
 
         # for recorded data
         if playback:
+            print("playback")
             self.recorded_data = np.empty((6,0))
             self.recording_timer = QtCore.QTimer()
             self.recording_timer.timeout.connect(self.read_recording)
@@ -89,6 +91,7 @@ class PlotWindow(QWidget):
             self.readCount=0
 
         else: 
+            print("start_ble")
             self.ble_worker.data_received.connect(self.read_data)
             self.ble_worker.start_ble()
 
@@ -124,7 +127,7 @@ class PlotWindow(QWidget):
 
         self.accx_buf.extend(self.received_data[0])
         self.accy_buf.extend(self.received_data[1])
-        #self.accz_buf.extend(self.received_data[2])
+        self.accz_buf.extend(self.received_data[2])
         self.gyrox_buf.extend(self.received_data[3])
         self.gyroy_buf.extend(self.received_data[4])
         self.gyroz_buf.extend(self.received_data[5])
@@ -138,7 +141,7 @@ class PlotWindow(QWidget):
         self.received_data = self.recorded_data[:,start:end]
         self.accx_buf.extend(self.received_data[0])
         self.accy_buf.extend(self.received_data[1])
-        #self.accz_buf.extend(self.received_data[2])
+        self.accz_buf.extend(self.received_data[2])
         self.gyrox_buf.extend(self.received_data[3])
         self.gyroy_buf.extend(self.received_data[4])
         self.gyroz_buf.extend(self.received_data[5])
@@ -156,7 +159,7 @@ class PlotWindow(QWidget):
         j = self.count % N
         new_x = self.accx_buf.popleft()
         new_y = self.accy_buf.popleft()
-        #new_z = self.accz_buf.popleft()
+        new_z = self.accz_buf.popleft()
         new_gx = self.gyrox_buf.popleft()
         new_gy = self.gyroy_buf.popleft()
         new_gz = self.gyroz_buf.popleft()
@@ -166,8 +169,8 @@ class PlotWindow(QWidget):
         self.win_accy[j]   = new_y
         self.win_accy[j+N] = new_y
 
-#        self.win_accz[j]   = new_z
-#        self.win_accz[j+N] = new_z
+        self.win_accz[j]   = new_z
+        self.win_accz[j+N] = new_z
         self.win_gx[j]   = new_gx
         self.win_gx[j+N] = new_gx
         self.win_gy[j]   = new_gy
@@ -196,6 +199,7 @@ class PlotWindow(QWidget):
         X = fx[peak_idx] # magnitudes at peak frequency
         Y = fy[peak_idx]
         phase  = np.angle(X + 1j*Y)
+#        phase = np.arctan2(Y,X)
         
         phase_x = np.angle(fx[peak_idx]) 
         phase_y = np.angle(fy[peak_idx])
@@ -245,7 +249,7 @@ class PlotWindow(QWidget):
         j = (self.count-1) % N
         acc_x   = self.win_accx[j+1:j+N+1] # current window
         acc_y   = self.win_accy[j+1:j+N+1]
- #       acc_z   = self.win_accz[j+1:j+N+1]
+        acc_z   = self.win_accz[j+1:j+N+1]
         phase_x = self.win_phasex[j+1:j+N+1]
         phase_y = self.win_phasey[j+1:j+N+1]
         gx      = self.win_gx[j+1:j+N+1]
@@ -265,7 +269,8 @@ class PlotWindow(QWidget):
         # update
         self.curve1.setData(self.t,acc_x) # ax
         self.curve2.setData(self.t,acc_y) # ay
-        self.curve3.setData(self.t,gz)
+        #self.curve3.setData(self.t,gz)
+        self.curve3.setData(self.t,acc_z)
         self.curve4.setData(freqs,np.abs(fx)) 
         self.curve5.setData(freqs,np.abs(fy)) 
 
