@@ -24,8 +24,8 @@ ACC_SCALES = {
 }
 
 # Scale parameters
-acc_divider = 16384
-gyro_divider = 16.4 #131 
+acc_divider = 2048 # +-16g
+gyro_divider = 16.4 # 2000 DPS
 dividers = [acc_divider, acc_divider, acc_divider, gyro_divider, gyro_divider, gyro_divider]
 bias_values = [0,0,0]
 
@@ -58,9 +58,9 @@ class BLEWorker(QtCore.QObject):
             #await client.write_gatt_char(PARAMS_UUID, scales)
     
             # for bias and scale correction
-            param_data = await client.read_gatt_char(PARAMS_UUID)
-            global bias_values
-            bias_values = [int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2)]
+#            param_data = await client.read_gatt_char(PARAMS_UUID)
+#            global bias_values
+#            bias_values = [int.from_bytes(param_data[i:i+2], 'little', signed=True) / 100 for i in range(0, len(param_data), 2)]
 
             # print("Adjustment values:", bias_values)
             await client.start_notify(CHARACTERISTIC_UUID, self.notification_handler)
@@ -77,7 +77,7 @@ class BLEWorker(QtCore.QObject):
         # Scale and bias correction from raw data
         data_arr = np.frombuffer(buffer, dtype='>i2').astype(np.float32)
         data_arr = data_arr.reshape(-1,6)
-        scaled = data_arr / dividers - bias_values
+        scaled = data_arr / dividers #- bias_values
         scaled = scaled.T
 
         return scaled
